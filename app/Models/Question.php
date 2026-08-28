@@ -51,4 +51,12 @@ class Question extends Model
             'depends_on_question_id'
         );
     }
+
+    public function dependencies(): HasMany
+{
+    return $this->hasMany(
+        QuestionCondition::class,
+        'question_id'
+    );
+}
 }

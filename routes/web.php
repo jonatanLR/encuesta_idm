@@ -19,4 +19,12 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
+/* Route::get('/debug', function () {
+    return \App\Models\QuestionCondition::with([
+    'question',
+    'dependsOnQuestion',
+    'dependsOnOption',
+])->get();
+}); */
+
 require __DIR__.'/auth.php';

@@ -13,6 +13,11 @@ class DatabaseSeeder extends Seeder
             QuestionnaireSeeder::class,
             SurveyVersionSeeder::class,
             SectionSeeder::class,
+            QuestionSeeder::class,
+            QuestionConditionSeeder::class,
+
+            MunicipalitySeeder::class,
+            CommunitySeeder::class,
         ]);
     }
 }
