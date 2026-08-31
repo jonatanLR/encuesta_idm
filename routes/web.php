@@ -30,7 +30,7 @@ Route::middleware(['auth'])->group(function () {
 ])->first();
 }); */
 
-Route::get('/debug', function () {
+/* Route::get('/debug', function () {
     $user = User::create([
     'name' => 'Usuario de Desarrollo',
     'email' => 'dev@encuestaidm.test',
@@ -38,7 +38,7 @@ Route::get('/debug', function () {
 ]);
 
     return $user;
-});
+}); */
 
 
 // Route::view('/community-test', 'community-search');

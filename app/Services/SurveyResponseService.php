@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Answer;
 use App\Models\AnswerOption;
+use App\Enums\SurveyResponseStatus;
 use App\Models\Question;
 use App\Models\SurveyResponse;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class SurveyResponseService
             'survey_version_id' => $surveyVersionId,
             'community_id' => $communityId,
             'created_by' => $userId,
-            'status' => 'draft',
+            'status' => SurveyResponseStatus::DRAFT,
         ]);
     }
 
@@ -154,18 +155,18 @@ class SurveyResponseService
     public function start(
         SurveyResponse $response
     ): SurveyResponse {
-        if ($response->status === 'in_progress') {
+        if ($response->status === SurveyResponseStatus::IN_PROGRESS) {
             return $response;
         }
 
-        if ($response->status !== 'draft') {
+        if ($response->status !== SurveyResponseStatus::DRAFT) {
             throw new InvalidArgumentException(
                 'Solo una encuesta en estado draft puede iniciarse.'
             );
         }
 
         $response->update([
-            'status' => 'in_progress',
+            'status' => SurveyResponseStatus::IN_PROGRESS,
             'started_at' => now(),
         ]);
 
@@ -175,11 +176,11 @@ class SurveyResponseService
     public function complete(
         SurveyResponse $response
     ): SurveyResponse {
-        if ($response->status === 'completed') {
+        if ($response->status === SurveyResponseStatus::COMPLETED) {
             return $response;
         }
 
-        if ($response->status !== 'in_progress') {
+        if ($response->status !== SurveyResponseStatus::IN_PROGRESS) {
             throw new InvalidArgumentException(
                 'Solo una encuesta en progreso puede finalizarse.'
             );
@@ -196,7 +197,7 @@ class SurveyResponseService
         }
 
         $response->update([
-            'status' => 'completed',
+            'status' => SurveyResponseStatus::COMPLETED,
             'completed_at' => now(),
         ]);
 
@@ -206,13 +207,13 @@ class SurveyResponseService
     public function cancel(
         SurveyResponse $response
     ): SurveyResponse {
-        if ($response->status === 'cancelled') {
+        if ($response->status === SurveyResponseStatus::CANCELLED) {
             return $response;
         }
 
         if (! in_array(
             $response->status,
-            ['draft', 'in_progress'],
+            [SurveyResponseStatus::DRAFT, SurveyResponseStatus::IN_PROGRESS],
             true
         )) {
             throw new InvalidArgumentException(
@@ -221,7 +222,7 @@ class SurveyResponseService
         }
 
         $response->update([
-            'status' => 'cancelled',
+            'status' => SurveyResponseStatus::CANCELLED,
         ]);
 
         return $response->refresh();

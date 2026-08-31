@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Enums\SurveyResponseStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -59,5 +60,14 @@ class SurveyResponse extends Model
         return $this->hasMany(
             Answer::class
         );
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'status' => SurveyResponseStatus::class,
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+        ];
     }
 }
