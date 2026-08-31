@@ -1,5 +1,8 @@
 <?php
 
+use App\Livewire\CommunitySearch;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -24,7 +27,22 @@ Route::middleware(['auth'])->group(function () {
     'question',
     'dependsOnQuestion',
     'dependsOnOption',
-])->get();
+])->first();
 }); */
+
+Route::get('/debug', function () {
+    $user = User::create([
+    'name' => 'Usuario de Desarrollo',
+    'email' => 'dev@encuestaidm.test',
+    'password' => Hash::make('Dev12345!'),
+]);
+
+    return $user;
+});
+
+
+// Route::view('/community-test', 'community-search');
+// Route::livewire('/community-test',CommunitySearch::class);
+Route::view('/community-test','community-test');
 
 require __DIR__.'/auth.php';

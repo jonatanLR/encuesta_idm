@@ -16,6 +16,8 @@ class Question extends Model
         'required',
         'active',
         'sort_order',
+        'data_source',
+        'data_source_table',
     ];
 
     protected $casts = [
@@ -53,10 +55,17 @@ class Question extends Model
     }
 
     public function dependencies(): HasMany
-{
-    return $this->hasMany(
-        QuestionCondition::class,
-        'question_id'
-    );
-}
+    {
+        return $this->hasMany(
+            QuestionCondition::class,
+            'question_id'
+        );
+    }
+
+    public function answers(): HasMany
+    {
+        return $this->hasMany(
+            Answer::class
+        );
+    }
 }

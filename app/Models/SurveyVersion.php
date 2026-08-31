@@ -28,4 +28,11 @@ class SurveyVersion extends Model
         return $this->hasMany(Section::class)
             ->orderBy('sort_order');
     }
+
+    public function responses()
+    {
+        return $this->hasMany(
+            SurveyResponse::class
+        );
+    }
 }

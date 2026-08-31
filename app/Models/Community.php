@@ -25,4 +25,11 @@ class Community extends Model
     {
         return $this->belongsTo(Municipality::class);
     }
+
+    public function surveyResponses()
+    {
+        return $this->hasMany(
+            SurveyResponse::class
+        );
+    }
 }

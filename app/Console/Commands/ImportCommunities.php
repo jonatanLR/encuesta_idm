@@ -50,7 +50,7 @@ class ImportCommunities extends Command
 
             return self::FAILURE;
         }
-
+        //
         $headers = fgetcsv($handle);
 
         if ($headers === false) {
@@ -62,10 +62,17 @@ class ImportCommunities extends Command
         }
 
         $headers = array_map(
-            fn ($header) => trim($header),
+            fn($header) => trim(
+                preg_replace('/^\xEF\xBB\xBF/', '', $header)
+            ),
             $headers
         );
 
+        $headers = array_map(
+            fn($header) => strtolower(trim($header)),
+            $headers
+        );
+        //
         $requiredHeaders = [
             'source_code',
             'name',
@@ -90,6 +97,11 @@ class ImportCommunities extends Command
         while (($row = fgetcsv($handle)) !== false) {
             if (count($row) !== count($headers)) {
                 $skipped++;
+
+                $this->warn(
+                    'Fila omitida por cantidad incorrecta de columnas: '
+                        . ($imported + $updated + $skipped)
+                );
 
                 continue;
             }

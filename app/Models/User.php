@@ -54,7 +54,15 @@ class User extends Authenticatable // implements MustVerifyEmail
     {
         return Str::of($this->name)
             ->explode(' ')
-            ->map(fn (string $name) => Str::of($name)->substr(0, 1))
+            ->map(fn(string $name) => Str::of($name)->substr(0, 1))
             ->implode('');
+    }
+
+    public function surveyResponses()
+    {
+        return $this->hasMany(
+            SurveyResponse::class,
+            'created_by'
+        );
     }
 }

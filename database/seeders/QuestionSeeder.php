@@ -199,6 +199,8 @@ class QuestionSeeder extends Seeder
                     'question_type_id' => $types[$data['type']],
                     'label' => $data['label'],
                     'description' => $data['description'] ?? null,
+                    'data_source' => $data['data_source'] ?? null,
+                    'data_source_table' => $data['data_source_table'] ?? null,
                     'required' => $data['required'],
                     'active' => true,
                     'sort_order' => $data['sort_order'],
