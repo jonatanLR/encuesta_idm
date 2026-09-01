@@ -7,12 +7,17 @@ use App\Models\SurveyResponse;
 use App\Models\SurveyVersion;
 use App\Models\User;
 use App\Services\SurveyResponseService;
+use App\Models\Question;
+use App\Models\QuestionType;
+use App\Models\Section;
 
 it('creates a survey response in draft status', function () {
     $questionnaire = Questionnaire::factory()->create();
+
     $surveyVersion = SurveyVersion::factory()->create([
         'questionnaire_id' => $questionnaire->id,
     ]);
+
     $user = User::factory()->create();
     $community = Community::factory()->create();
 
@@ -29,12 +34,21 @@ it('creates a survey response in draft status', function () {
         ->toBeInstanceOf(SurveyResponse::class)
         ->and($response->questionnaire_id)->toBe($questionnaire->id)
         ->and($response->survey_version_id)->toBe($surveyVersion->id)
-        ->and($response->created_by)->toBe($user->id)
         ->and($response->community_id)->toBe($community->id)
-        ->and($response->status)->toBe(SurveyResponseStatus::DRAFT);
+        ->and($response->created_by)->toBe($user->id)
+        ->and($response->status)->toBe(SurveyResponseStatus::DRAFT)
+        ->and($response->reference)->toBe(
+            'ENC-' . now()->format('Ymd') . '-' . str_pad(
+                (string) $response->id,
+                4,
+                '0',
+                STR_PAD_LEFT
+            )
+        );
 
     $this->assertDatabaseHas('survey_responses', [
         'id' => $response->id,
+        'reference' => $response->reference,
         'questionnaire_id' => $questionnaire->id,
         'survey_version_id' => $surveyVersion->id,
         'community_id' => $community->id,
@@ -42,3 +56,1077 @@ it('creates a survey response in draft status', function () {
         'status' => SurveyResponseStatus::DRAFT->value,
     ]);
 });
+
+it('starts a draft survey response', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+expect($response->status)
+    ->toBe(SurveyResponseStatus::DRAFT);
+
+$startedResponse = $service->start($response);
+
+expect($startedResponse->status)
+    ->toBe(SurveyResponseStatus::IN_PROGRESS)
+    ->and($startedResponse->started_at)
+    ->not->toBeNull()
+    ->and($startedResponse->completed_at)
+    ->toBeNull();
+
+$this->assertDatabaseHas('survey_responses', [
+    'id' => $response->id,
+    'status' => SurveyResponseStatus::IN_PROGRESS->value,
+]);
+
+});
+
+//-------------------------------------------------------------------
+
+it('does not restart an already started survey response', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$startedResponse = $service->start($response);
+
+$originalStartedAt = $startedResponse->started_at;
+
+$startedAgain = $service->start($startedResponse);
+
+expect($startedAgain->status)
+    ->toBe(SurveyResponseStatus::IN_PROGRESS)
+    ->and($startedAgain->started_at->equalTo($originalStartedAt))
+    ->toBeTrue();
+
+expect($startedAgain->id)
+    ->toBe($response->id);
+
+});
+
+//------------------------------------------------------------------
+it('does not allow a cancelled survey response to be started', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$cancelledResponse = $service->cancel($response);
+
+expect($cancelledResponse->status)
+    ->toBe(SurveyResponseStatus::CANCELLED);
+
+expect(fn () => $service->start($cancelledResponse))
+    ->toThrow(InvalidArgumentException::class);
+
+expect($cancelledResponse->refresh()->status)
+    ->toBe(SurveyResponseStatus::CANCELLED);
+
+
+});
+
+//----------------------------------------------------------
+it('cancels a draft survey response', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$cancelledResponse = $service->cancel($response);
+
+expect($cancelledResponse->status)
+    ->toBe(SurveyResponseStatus::CANCELLED);
+
+expect($cancelledResponse->completed_at)
+    ->toBeNull();
+
+$this->assertDatabaseHas('survey_responses', [
+    'id' => $response->id,
+    'status' => SurveyResponseStatus::CANCELLED->value,
+]);
+
+
+});
+
+//------------------------------------------------------------------
+it('cancels an in-progress survey response', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response = $service->start($response);
+
+expect($response->status)
+    ->toBe(SurveyResponseStatus::IN_PROGRESS)
+    ->and($response->started_at)
+    ->not->toBeNull();
+
+$cancelledResponse = $service->cancel($response);
+
+expect($cancelledResponse->status)
+    ->toBe(SurveyResponseStatus::CANCELLED)
+    ->and($cancelledResponse->started_at)
+    ->not->toBeNull()
+    ->and($cancelledResponse->completed_at)
+    ->toBeNull();
+
+$this->assertDatabaseHas('survey_responses', [
+    'id' => $response->id,
+    'status' => SurveyResponseStatus::CANCELLED->value,
+]);
+
+
+});
+
+//--------------------------------------------
+it('does not allow a completed survey response to be cancelled', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response->update([
+    'status' => SurveyResponseStatus::COMPLETED,
+    'completed_at' => now(),
+]);
+
+expect(fn () => $service->cancel($response))
+    ->toThrow(InvalidArgumentException::class);
+
+expect($response->refresh()->status)
+    ->toBe(SurveyResponseStatus::COMPLETED);
+
+expect($response->completed_at)
+    ->not->toBeNull();
+
+
+});
+
+//-------------------------------------------------------------
+
+it('does not complete an in-progress survey response with validation errors', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$section = Section::factory()->create([
+    'survey_version_id' => $surveyVersion->id,
+]);
+
+$questionType = QuestionType::factory()->create([
+    'code' => 'text',
+    'name' => 'Texto',
+]);
+
+Question::factory()->create([
+    'section_id' => $section->id,
+    'question_type_id' => $questionType->id,
+    'required' => true,
+    'active' => true,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response = $service->start($response);
+
+expect($response->status)
+    ->toBe(SurveyResponseStatus::IN_PROGRESS);
+
+expect(fn () => $service->complete($response))
+    ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+expect($response->refresh()->status)
+    ->toBe(SurveyResponseStatus::IN_PROGRESS);
+
+expect($response->completed_at)
+    ->toBeNull();
+
+
+});
+
+//------------------------------------------------------------------------
+it('completes an in-progress survey response when all required questions are answered', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$section = Section::factory()->create([
+    'survey_version_id' => $surveyVersion->id,
+]);
+
+$questionType = QuestionType::factory()->create([
+    'code' => 'text',
+    'name' => 'Texto',
+]);
+
+$question = Question::factory()->create([
+    'section_id' => $section->id,
+    'question_type_id' => $questionType->id,
+    'required' => true,
+    'active' => true,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response = $service->start($response);
+
+$service->saveAnswer(
+    $response,
+    $question,
+    'Respuesta de prueba',
+);
+
+$completedResponse = $service->complete($response);
+
+expect($completedResponse->status)
+    ->toBe(SurveyResponseStatus::COMPLETED);
+
+expect($completedResponse->completed_at)
+    ->not->toBeNull();
+
+$this->assertDatabaseHas('answers', [
+    'survey_response_id' => $response->id,
+    'question_id' => $question->id,
+    'text_value' => 'Respuesta de prueba',
+]);
+
+$this->assertDatabaseHas('survey_responses', [
+    'id' => $response->id,
+    'status' => SurveyResponseStatus::COMPLETED->value,
+]);
+
+
+});
+
+//-------------------------------------------------------------
+
+it('does not complete an already completed survey response again', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$section = Section::factory()->create([
+    'survey_version_id' => $surveyVersion->id,
+]);
+
+$questionType = QuestionType::factory()->create([
+    'code' => 'text',
+    'name' => 'Texto',
+]);
+
+$question = Question::factory()->create([
+    'section_id' => $section->id,
+    'question_type_id' => $questionType->id,
+    'required' => true,
+    'active' => true,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response = $service->start($response);
+
+$service->saveAnswer(
+    $response,
+    $question,
+    'Respuesta de prueba',
+);
+
+$completedResponse = $service->complete($response);
+
+$completedAt = $completedResponse->completed_at;
+
+$secondResult = $service->complete($completedResponse);
+
+expect($secondResult->status)
+    ->toBe(SurveyResponseStatus::COMPLETED);
+
+expect($secondResult->completed_at)
+    ->toEqual($completedAt);
+
+expect($secondResult->id)
+    ->toBe($completedResponse->id);
+
+
+});
+
+//=======================================================================
+it('does not allow a cancelled survey response to be completed', function () {
+$questionnaire = Questionnaire::factory()->create();
+
+
+$surveyVersion = SurveyVersion::factory()->create([
+    'questionnaire_id' => $questionnaire->id,
+]);
+
+$user = User::factory()->create();
+$community = Community::factory()->create();
+
+$service = app(SurveyResponseService::class);
+
+$response = $service->createDraft(
+    $questionnaire->id,
+    $surveyVersion->id,
+    $user->id,
+    $community->id,
+);
+
+$response = $service->start($response);
+$response = $service->cancel($response);
+
+expect($response->status)
+    ->toBe(SurveyResponseStatus::CANCELLED);
+
+expect(fn () => $service->complete($response))
+    ->toThrow(\InvalidArgumentException::class);
+
+expect($response->refresh()->status)
+    ->toBe(SurveyResponseStatus::CANCELLED);
+
+expect($response->completed_at)
+    ->toBeNull();
+
+
+});
+
+//----------------------------------------------------------------------------
+it('completes a survey response when an optional question is unanswered', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+});
+
+//----------------------------------------------------------
+
+it('completes a survey response with a valid single choice answer', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $option = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        $option->id,
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'option_id' => $option->id,
+    ]);
+});
+
+//--------------------------------------------------------------------------------
+
+it('does not allow a single choice answer from another question', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $otherQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $otherOption = $otherQuestion->options()->create([
+        'value' => 'otra_opcion',
+        'label' => 'Opción de otra pregunta',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    expect(fn () => $service->saveAnswer(
+        $response,
+        $question,
+        $otherOption->id,
+    ))->toThrow(
+        InvalidArgumentException::class,
+        'La opción seleccionada no pertenece a la pregunta.'
+    );
+
+    $this->assertDatabaseMissing('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'option_id' => $otherOption->id,
+    ]);
+});
+
+//---------------------------------------------------------------
+it('completes a survey response with valid multiple choice answers', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $option1 = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option2 = $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $option3 = $question->options()->create([
+        'value' => 'opcion_3',
+        'label' => 'Opción 3',
+        'sort_order' => 3,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        [$option1->id, $option3->id],
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    $answer = $response->answers()
+        ->where('question_id', $question->id)
+        ->first();
+
+    expect($answer)->not->toBeNull();
+
+    $this->assertDatabaseHas('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option1->id,
+    ]);
+
+    $this->assertDatabaseHas('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option3->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option2->id,
+    ]);
+});
+
+//---------------------------------------------------------------------
+
+it('does not allow multiple choice answers containing an option from another question', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $otherQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $option1 = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option2 = $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $invalidOption = $otherQuestion->options()->create([
+        'value' => 'otra_opcion',
+        'label' => 'Opción de otra pregunta',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    expect(fn () => $service->saveAnswer(
+        $response,
+        $question,
+        [$option1->id, $invalidOption->id],
+    ))->toThrow(
+        InvalidArgumentException::class,
+        'Una o más opciones no pertenecen a la pregunta.'
+    );
+
+    $this->assertDatabaseMissing('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'question_option_id' => $option1->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'question_option_id' => $invalidOption->id,
+    ]);
+});
+
+//-----------------------------------------------------------------------
+
+it('does not complete a survey response when a required multiple choice question has no selected options', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        [],
+    );
+
+    expect(fn () => $service->complete($response))
+        ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+    expect($response->refresh()->status)
+        ->toBe(SurveyResponseStatus::IN_PROGRESS);
+
+    expect($response->completed_at)
+        ->toBeNull();
+});
+
+//----------------------------------------------------------------
+
+it('does not require a conditional question when its condition is not met', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionA->id,
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+});
+
+//-----------------------------------------------------------------
+
+it('requires a conditional question when its condition is met', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    expect(fn () => $service->complete($response))
+        ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+    expect($response->refresh()->status)
+        ->toBe(SurveyResponseStatus::IN_PROGRESS);
+});
+
+
+

@@ -24,13 +24,30 @@ class SurveyResponseService
         int $userId,
         ?int $communityId = null
     ): SurveyResponse {
-        return SurveyResponse::create([
-            'questionnaire_id' => $questionnaireId,
-            'survey_version_id' => $surveyVersionId,
-            'community_id' => $communityId,
-            'created_by' => $userId,
-            'status' => SurveyResponseStatus::DRAFT,
-        ]);
+        return DB::transaction(function () use (
+            $questionnaireId,
+            $surveyVersionId,
+            $userId,
+            $communityId
+        ) {
+            $response = SurveyResponse::create([
+                'questionnaire_id' => $questionnaireId,
+                'survey_version_id' => $surveyVersionId,
+                'community_id' => $communityId,
+                'created_by' => $userId,
+                'status' => SurveyResponseStatus::DRAFT,
+            ]);
+
+            $response->update([
+                'reference' => sprintf(
+                    'ENC-%s-%04d',
+                    now()->format('Ymd'),
+                    $response->id
+                ),
+            ]);
+
+            return $response->refresh();
+        });
     }
 
     public function saveAnswer(
