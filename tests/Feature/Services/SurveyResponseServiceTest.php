@@ -512,7 +512,1607 @@ expect($response->completed_at)
 
 });
 
+//----------------------------------------------------------------------------
+it('completes a survey response when an optional question is unanswered', function () {
+    $questionnaire = Questionnaire::factory()->create();
 
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
 
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
 
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+});
+
+//----------------------------------------------------------
+
+it('completes a survey response with a valid single choice answer', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $option = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        $option->id,
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'option_id' => $option->id,
+    ]);
+});
+
+//--------------------------------------------------------------------------------
+
+it('does not allow a single choice answer from another question', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $otherQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $otherOption = $otherQuestion->options()->create([
+        'value' => 'otra_opcion',
+        'label' => 'Opción de otra pregunta',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    expect(fn () => $service->saveAnswer(
+        $response,
+        $question,
+        $otherOption->id,
+    ))->toThrow(
+        InvalidArgumentException::class,
+        'La opción seleccionada no pertenece a la pregunta.'
+    );
+
+    $this->assertDatabaseMissing('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'option_id' => $otherOption->id,
+    ]);
+});
+
+//---------------------------------------------------------------
+it('completes a survey response with valid multiple choice answers', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $option1 = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option2 = $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $option3 = $question->options()->create([
+        'value' => 'opcion_3',
+        'label' => 'Opción 3',
+        'sort_order' => 3,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        [$option1->id, $option3->id],
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    $answer = $response->answers()
+        ->where('question_id', $question->id)
+        ->first();
+
+    expect($answer)->not->toBeNull();
+
+    $this->assertDatabaseHas('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option1->id,
+    ]);
+
+    $this->assertDatabaseHas('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option3->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'answer_id' => $answer->id,
+        'question_option_id' => $option2->id,
+    ]);
+});
+
+//---------------------------------------------------------------------
+
+it('does not allow multiple choice answers containing an option from another question', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $otherQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => false,
+        'active' => true,
+    ]);
+
+    $option1 = $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option2 = $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $invalidOption = $otherQuestion->options()->create([
+        'value' => 'otra_opcion',
+        'label' => 'Opción de otra pregunta',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    expect(fn () => $service->saveAnswer(
+        $response,
+        $question,
+        [$option1->id, $invalidOption->id],
+    ))->toThrow(
+        InvalidArgumentException::class,
+        'Una o más opciones no pertenecen a la pregunta.'
+    );
+
+    $this->assertDatabaseMissing('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'question_option_id' => $option1->id,
+    ]);
+
+    $this->assertDatabaseMissing('answer_options', [
+        'question_option_id' => $invalidOption->id,
+    ]);
+});
+
+//-----------------------------------------------------------------------
+
+it('does not complete a survey response when a required multiple choice question has no selected options', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'multiple_choice',
+        'name' => 'Selección múltiple',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $question->options()->create([
+        'value' => 'opcion_1',
+        'label' => 'Opción 1',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $question->options()->create([
+        'value' => 'opcion_2',
+        'label' => 'Opción 2',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $question,
+        [],
+    );
+
+    expect(fn () => $service->complete($response))
+        ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+    expect($response->refresh()->status)
+        ->toBe(SurveyResponseStatus::IN_PROGRESS);
+
+    expect($response->completed_at)
+        ->toBeNull();
+});
+
+//----------------------------------------------------------------
+
+it('does not require a conditional question when its condition is not met', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionA->id,
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+});
+
+//-----------------------------------------------------------------
+
+it('requires a conditional question when its condition is met', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    expect(fn () => $service->complete($response))
+        ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+    expect($response->refresh()->status)
+        ->toBe(SurveyResponseStatus::IN_PROGRESS);
+});
+
+//-----------------------------------------------------------------
+it('completes a survey response when a conditional required question is answered', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    $service->saveAnswer(
+        $response,
+        $conditionalQuestion,
+        'Mi respuesta',
+    );
+
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $mainQuestion->id,
+        'option_id' => $optionOtros->id,
+    ]);
+
+    $this->assertDatabaseHas('answers', [
+        'survey_response_id' => $response->id,
+        'question_id' => $conditionalQuestion->id,
+        'text_value' => 'Mi respuesta',
+    ]);
+});
+//---------------------------------------------------
+it('does not complete a survey when a required conditional question is unanswered', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Se responde la pregunta principal con "Otros".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    // La pregunta condicional queda sin responder.
+    expect(fn () => $service->complete($response))
+        ->toThrow(\App\Exceptions\SurveyValidationException::class);
+
+    expect($response->refresh()->status)
+        ->toBe(SurveyResponseStatus::IN_PROGRESS);
+
+    expect($response->completed_at)
+        ->toBeNull();
+});
+
+//-------------------------------------------------------------------
+it('does not require a conditional question after changing the triggering answer', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Primero se selecciona "Otros".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    // La condición se cumple.
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // Se responde la pregunta condicional.
+    $service->saveAnswer(
+        $response,
+        $conditionalQuestion,
+        'Respuesta temporal',
+    );
+
+    // Ahora se cambia la respuesta principal a "Opción A".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionA->id,
+    );
+
+    // La condición ya no se cumple.
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+
+    // La encuesta debe poder finalizar sin exigir
+    // la pregunta condicional.
+    $completedResponse = $service->complete($response);
+
+    expect($completedResponse->status)
+        ->toBe(SurveyResponseStatus::COMPLETED);
+
+    expect($completedResponse->completed_at)
+        ->not->toBeNull();
+});
+//----------------------------------------------------------------------------
+
+it('preserves a conditional answer when the triggering answer changes and changes back', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionOtros = $mainQuestion->options()->create([
+        'value' => 'otros',
+        'label' => 'Otros',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionOtros->id,
+        'operator' => 'equals',
+        'expected_value' => 'otros',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // 1. Seleccionamos "Otros".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // 2. Respondemos la pregunta condicional.
+    $service->saveAnswer(
+        $response,
+        $conditionalQuestion,
+        'Respuesta temporal',
+    );
+
+    // 3. Cambiamos a "Opción A".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionA->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+
+    // 4. Volvemos a seleccionar "Otros".
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionOtros->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // 5. La respuesta anterior debe seguir almacenada.
+    $answer = $response->answers()
+        ->where('question_id', $conditionalQuestion->id)
+        ->first();
+
+    expect($answer)->not->toBeNull()
+        ->and($answer->text_value)->toBe('Respuesta temporal');
+});
+
+//-----------------------------------------------------------------
+
+it('shows a conditional question only when all conditions are met', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $question1 = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $question2 = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $option1Yes = $question1->options()->create([
+        'value' => 'si',
+        'label' => 'Sí',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option1No = $question1->options()->create([
+        'value' => 'no',
+        'label' => 'No',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $option2Yes = $question2->options()->create([
+        'value' => 'si',
+        'label' => 'Sí',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $option2No = $question2->options()->create([
+        'value' => 'no',
+        'label' => 'No',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $question1->id,
+        'depends_on_option_id' => $option1Yes->id,
+        'operator' => 'equals',
+        'expected_value' => 'si',
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $question2->id,
+        'depends_on_option_id' => $option2Yes->id,
+        'operator' => 'equals',
+        'expected_value' => 'si',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Primera condición cumplida.
+    $service->saveAnswer(
+        $response,
+        $question1,
+        $option1Yes->id,
+    );
+
+    // Segunda condición todavía NO cumplida.
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+
+    // Ahora cumplimos la segunda condición.
+    $service->saveAnswer(
+        $response,
+        $question2,
+        $option2Yes->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // Cambiamos la primera condición para que deje de cumplirse.
+    $service->saveAnswer(
+        $response,
+        $question1,
+        $option1No->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+});
+
+//--------------------------------------------------------------------
+
+it('shows a conditional question when a not_equals condition is satisfied', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $optionB = $mainQuestion->options()->create([
+        'value' => 'opcion_b',
+        'label' => 'Opción B',
+        'sort_order' => 2,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionA->id,
+        'operator' => 'not_equals',
+        'expected_value' => 'opcion_a',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Seleccionamos una opción diferente de la condición.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionB->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // Ahora seleccionamos exactamente la opción indicada
+    // por la condición.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        $optionA->id,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+});
+
+//---------------------------------------------------------------------------
+
+it('does not show a conditional question when its dependency has no answer', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $singleChoiceType = QuestionType::factory()->create([
+        'code' => 'single_choice',
+        'name' => 'Selección simple',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $singleChoiceType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $optionA = $mainQuestion->options()->create([
+        'value' => 'opcion_a',
+        'label' => 'Opción A',
+        'sort_order' => 1,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'depends_on_option_id' => $optionA->id,
+        'operator' => 'equals',
+        'expected_value' => 'opcion_a',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // La pregunta de la que depende la condición
+    // todavía no tiene ninguna respuesta.
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+});
+
+//-------------------------------------------------------------------
+it('shows a conditional question when a text answer matches the expected value', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'operator' => 'equals',
+        'expected_value' => 'Municipal',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // La respuesta todavía no coincide.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        'Privada',
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+
+    // Cambiamos la respuesta al valor esperado.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        'Municipal',
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+});
+
+//---------------------------------------------------
+
+it('shows a conditional question when a text answer satisfies not_equals', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'operator' => 'not_equals',
+        'expected_value' => 'Municipal',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Un valor diferente debe cumplir not_equals.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        'Privada',
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+
+    // El mismo valor debe dejar de cumplir not_equals.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        'Municipal',
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+});
+
+//-------------------------------------------------
+
+it('shows a conditional question when a number answer matches the expected value', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+    ]);
+
+    $numberType = QuestionType::factory()->create([
+        'code' => 'number',
+        'name' => 'Número',
+    ]);
+
+    $textType = QuestionType::factory()->create([
+        'code' => 'text',
+        'name' => 'Texto',
+    ]);
+
+    $mainQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $numberType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $textType->id,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $conditionalQuestion->conditions()->create([
+        'depends_on_question_id' => $mainQuestion->id,
+        'operator' => 'equals',
+        'expected_value' => '25',
+        'active' => true,
+    ]);
+
+    $user = User::factory()->create();
+    $community = Community::factory()->create();
+
+    $service = app(SurveyResponseService::class);
+
+    $response = $service->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+        $community->id,
+    );
+
+    $response = $service->start($response);
+
+    // Un valor diferente no cumple la condición.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        20,
+    );
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeFalse();
+
+    // El valor esperado sí cumple la condición.
+    $service->saveAnswer(
+        $response,
+        $mainQuestion,
+        25,
+    );
+    
+
+    expect(
+        app(\App\Services\ConditionEvaluator::class)
+            ->shouldShow($response, $conditionalQuestion)
+    )->toBeTrue();
+});
+
+//-----------------------------------------------------------
 

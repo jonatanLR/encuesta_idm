@@ -82,8 +82,8 @@ class ConditionEvaluator
         }
 
         if ($answer->number_value !== null) {
-            return (string) $answer->number_value ===
-                (string) $condition->expected_value;
+            return (float) $answer->number_value ===
+                (float) $condition->expected_value;
         }
 
         if ($answer->date_value !== null) {
