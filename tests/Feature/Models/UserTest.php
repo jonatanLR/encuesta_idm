@@ -72,3 +72,4 @@ it('hides sensitive attributes', function () {
         ->not->toHaveKey('remember_token');
 });
 
+
