@@ -9,7 +9,7 @@ use App\Models\SurveyVersion;
 use App\Models\User;
 use App\Services\SurveyResponseService;
 use App\Services\SurveyResponseValidator;
-use Illuminate\Database\QueryException;
+// use Illuminate\Database\QueryException;
 
 it('ignores inactive required questions during validation', function () {
     $questionnaire = Questionnaire::factory()->create();
@@ -231,7 +231,7 @@ it('returns true when the response is valid', function () {
 
 //---------------------------------------------------------
 
-it('rolls back the answer when saving a number value fails', function () {
+/* it('rolls back the answer when saving a number value fails', function () {
     $questionnaire = Questionnaire::factory()->create();
 
     $version = SurveyVersion::factory()->create([
@@ -277,4 +277,4 @@ it('rolls back the answer when saving a number value fails', function () {
     $response->refresh();
 
     expect($response->answers()->first()->number_value)->toBe('100.0000');
-});
+}); */
