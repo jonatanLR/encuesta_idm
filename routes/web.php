@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\CommunitySearch;
+use App\Livewire\Survey\Start;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,8 @@ Route::view('dashboard', 'dashboard')
 
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
+
+    Route::livewire('/encuestas/iniciar', Start::class)->name('survey.start');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
@@ -40,9 +43,8 @@ Route::middleware(['auth'])->group(function () {
     return $user;
 }); */
 
-
 // Route::view('/community-test', 'community-search');
 // Route::livewire('/community-test',CommunitySearch::class);
-Route::view('/community-test','community-test');
+Route::view('/community-test', 'community-test');
 
 require __DIR__.'/auth.php';
