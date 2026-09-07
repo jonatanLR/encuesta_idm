@@ -5,6 +5,9 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 
@@ -58,7 +61,28 @@ class User extends Authenticatable // implements MustVerifyEmail
             ->implode('');
     }
 
-    public function surveyResponses()
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
+    public function hasRole(string $slug): bool
+    {
+        return $this->roles()->where('slug', $slug)->exists();
+    }
+
+    public function hasPermission(string $slug): bool
+    {
+        if ($this->hasRole('admin')) {
+            return true;
+        }
+
+        return $this->roles()
+            ->whereHas('permissions', fn (Builder $query) => $query->where('slug', $slug))
+            ->exists();
+    }
+
+    public function surveyResponses(): HasMany
     {
         return $this->hasMany(
             SurveyResponse::class,
