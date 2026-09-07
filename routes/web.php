@@ -1,7 +1,9 @@
 <?php
 
 use App\Livewire\CommunitySearch;
+use App\Livewire\Survey\Index;
 use App\Livewire\Survey\Start;
+use App\Livewire\SurveyManagement\Index as SurveyManagementIndex;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
@@ -18,7 +20,9 @@ Route::view('dashboard', 'dashboard')
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
+    Route::livewire('/encuestas', Index::class)->name('survey.index');
     Route::livewire('/encuestas/iniciar', Start::class)->name('survey.start');
+    Route::livewire('/administrar-encuestas', SurveyManagementIndex::class)->name('survey-management.index');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
