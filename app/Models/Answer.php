@@ -17,6 +17,7 @@ class Answer extends Model
         'number_value',
         'date_value',
         'option_id',
+        'household_member_id',
     ];
 
     protected $casts = [
@@ -43,6 +44,14 @@ class Answer extends Model
         return $this->belongsTo(
             QuestionOption::class,
             'option_id'
+        );
+    }
+
+    public function householdMember(): BelongsTo
+    {
+        return $this->belongsTo(
+            HouseholdMember::class,
+            'household_member_id'
         );
     }
 

@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use App\Enums\SurveyResponseStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class SurveyResponse extends Model
 {
@@ -20,12 +22,18 @@ class SurveyResponse extends Model
         'status',
         'started_at',
         'completed_at',
+        'public_id',
+        'latitude',
+        'longitude',
+        'location_source',
     ];
 
-    protected $casts = [
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
-    ];
+    protected static function booted(): void
+    {
+        static::creating(function (self $surveyResponse): void {
+            $surveyResponse->public_id ??= (string) Str::ulid();
+        });
+    }
 
     public function questionnaire()
     {
@@ -63,12 +71,19 @@ class SurveyResponse extends Model
         );
     }
 
+    public function household(): HasOne
+    {
+        return $this->hasOne(Household::class);
+    }
+
     protected function casts(): array
     {
         return [
             'status' => SurveyResponseStatus::class,
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
         ];
     }
 }
