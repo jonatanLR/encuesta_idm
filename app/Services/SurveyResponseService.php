@@ -10,6 +10,7 @@ use App\Models\SurveyResponse;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use App\Exceptions\SurveyValidationException;
+use App\Models\HouseholdMember;
 
 class SurveyResponseService
 {
@@ -50,19 +51,67 @@ class SurveyResponseService
         });
     }
 
+    protected function validateAnswerContext(
+        SurveyResponse $response,
+        Question $question,
+        ?HouseholdMember $householdMember
+    ): void {
+        $isMemberQuestion = $question->section?->code === 'MEMBER';
+
+        if ($isMemberQuestion && $householdMember === null) {
+            throw new InvalidArgumentException(
+                'Las preguntas de miembros requieren un miembro de hogar.'
+            );
+        }
+
+        if (! $isMemberQuestion && $householdMember !== null) {
+            throw new InvalidArgumentException(
+                'Solo las preguntas de miembros pueden asociarse a un miembro de hogar.'
+            );
+        }
+
+        if ($householdMember === null) {
+            return;
+        }
+
+        if ($householdMember->trashed()) {
+            throw new InvalidArgumentException(
+                'Un miembro eliminado no puede recibir respuestas.'
+            );
+        }
+
+        $belongsToResponse = $response->household()
+            ->whereKey($householdMember->household_id)
+            ->exists();
+
+        if (! $belongsToResponse) {
+            throw new InvalidArgumentException(
+                'El miembro no pertenece a la respuesta de encuesta.'
+            );
+        }
+    }
+
     public function saveAnswer(
         SurveyResponse $response,
         Question $question,
-        mixed $value
+        mixed $value,
+        ?HouseholdMember $householdMember = null
     ): Answer {
         return DB::transaction(function () use (
             $response,
             $question,
-            $value
+            $value,
+            $householdMember
         ) {
+            $this->validateAnswerContext(
+                $response,
+                $question,
+                $householdMember
+            );
             $answer = Answer::firstOrNew([
                 'survey_response_id' => $response->id,
                 'question_id' => $question->id,
+                'household_member_id' => $householdMember?->id,
             ]);
 
             $this->clearAnswerValues($answer);

@@ -3,15 +3,20 @@
 namespace App\Services;
 
 use App\Models\Answer;
+use App\Models\Household;
+use App\Models\HouseholdMember;
+use App\Models\HouseholdRelationship;
 use App\Models\Question;
 use App\Models\QuestionCondition;
+use App\Models\QuestionType;
 use App\Models\SurveyResponse;
 
 class ConditionEvaluator
 {
     public function shouldShow(
         SurveyResponse $response,
-        Question $question
+        Question $question,
+        ?HouseholdMember $householdMember = null
     ): bool {
         $conditions = $question->conditions()
             ->where('active', true)
@@ -24,7 +29,8 @@ class ConditionEvaluator
         foreach ($conditions as $condition) {
             if (! $this->evaluateCondition(
                 $response,
-                $condition
+                $condition,
+                $householdMember
             )) {
                 return false;
             }
@@ -35,9 +41,10 @@ class ConditionEvaluator
 
     protected function evaluateCondition(
         SurveyResponse $response,
-        QuestionCondition $condition
+        QuestionCondition $condition,
+        ?HouseholdMember $householdMember = null
     ): bool {
-        $answer = Answer::query()
+        $answerQuery = Answer::query()
             ->where(
                 'survey_response_id',
                 $response->id
@@ -45,8 +52,18 @@ class ConditionEvaluator
             ->where(
                 'question_id',
                 $condition->depends_on_question_id
-            )
-            ->first();
+            );
+
+        if ($householdMember !== null) {
+            $answerQuery->where(
+                'household_member_id',
+                $householdMember->id
+            );
+        } else {
+            $answerQuery->whereNull('household_member_id');
+        }
+
+        $answer = $answerQuery->first();
 
         if (! $answer) {
             return false;

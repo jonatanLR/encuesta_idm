@@ -34,6 +34,7 @@ class HouseholdMember extends Model
     {
         return [
             'age' => 'decimal:2',
+            'capture_started_at' => 'datetime',
         ];
     }
 

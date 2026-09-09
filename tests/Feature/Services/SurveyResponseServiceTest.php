@@ -12,6 +12,12 @@ use App\Models\QuestionType;
 use App\Models\QuestionOption;
 use App\Models\Section;
 use App\Models\Answer;
+use App\Models\Household;
+use App\Models\HouseholdMember;
+use App\Models\HouseholdRelationship;
+use App\Models\QuestionCondition;
+use App\Services\ConditionEvaluator;
+use Illuminate\Support\Str;
 
 it('creates a survey response in draft status', function () {
     $questionnaire = Questionnaire::factory()->create();
@@ -3030,7 +3036,7 @@ it('rejects a non numeric value for a number answer', function () {
         $community->id,
     );
 
-    expect(fn () => $service->saveAnswer(
+    expect(fn() => $service->saveAnswer(
         $response,
         $question,
         'no-es-un-numero'
@@ -3082,7 +3088,7 @@ it('rejects a non array value for a multiple choice answer', function () {
         $community->id,
     );
 
-    expect(fn () => $service->saveAnswer(
+    expect(fn() => $service->saveAnswer(
         $response,
         $question,
         'opcion_1'
@@ -3133,7 +3139,7 @@ it('rejects an unsupported question type when saving an answer', function () {
         $community->id,
     );
 
-    expect(fn () => $service->saveAnswer(
+    expect(fn() => $service->saveAnswer(
         $response,
         $question,
         'imagen.jpg'
@@ -3173,7 +3179,7 @@ it('does not start a completed survey response', function () {
         'completed_at' => now(),
     ]);
 
-    expect(fn () => $service->start($response))
+    expect(fn() => $service->start($response))
         ->toThrow(
             InvalidArgumentException::class,
             'Solo una encuesta en estado draft puede iniciarse.'
@@ -3208,7 +3214,7 @@ it('does not complete a draft survey response', function () {
         $community->id,
     );
 
-    expect(fn () => $service->complete($response))
+    expect(fn() => $service->complete($response))
         ->toThrow(
             InvalidArgumentException::class,
             'Solo una encuesta en progreso puede finalizarse.'
@@ -3301,3 +3307,478 @@ it('creates a draft survey response without a community', function () {
 });
 
 //-------------------------------------------------------
+
+it('saves separate answers for different household members', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+        'code' => 'MEMBER',
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_TEST_001',
+    ]);
+
+    $user = User::factory()->create();
+
+    $response = app(SurveyResponseService::class)->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+    );
+
+    $household = \App\Models\Household::create([
+        'survey_response_id' => $response->id,
+    ]);
+
+    $relationship = \App\Models\HouseholdRelationship::create([
+        'code' => 'HEAD',
+        'name' => 'Head of household',
+        'active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $memberOne = \App\Models\HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Maria Lopez',
+    ]);
+
+    $memberTwo = \App\Models\HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Carlos Lopez',
+    ]);
+
+    $service = app(SurveyResponseService::class);
+
+    $answerOne = $service->saveAnswer(
+        $response,
+        $question,
+        'Respuesta Maria',
+        $memberOne,
+    );
+
+    $answerTwo = $service->saveAnswer(
+        $response,
+        $question,
+        'Respuesta Carlos',
+        $memberTwo,
+    );
+
+    expect($answerOne->id)->not->toBe($answerTwo->id)
+        ->and($answerOne->household_member_id)->toBe($memberOne->id)
+        ->and($answerTwo->household_member_id)->toBe($memberTwo->id)
+        ->and($answerOne->text_value)->toBe('Respuesta Maria')
+        ->and($answerTwo->text_value)->toBe('Respuesta Carlos');
+
+    expect(
+        Answer::query()
+            ->where('survey_response_id', $response->id)
+            ->where('question_id', $question->id)
+            ->count()
+    )->toBe(2);
+});
+
+it('updates an existing answer for the same household member', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+        'code' => 'MEMBER',
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_TEST_002',
+    ]);
+
+    $user = User::factory()->create();
+
+    $response = app(SurveyResponseService::class)->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+    );
+
+    $household = \App\Models\Household::create([
+        'survey_response_id' => $response->id,
+    ]);
+
+    $relationship = \App\Models\HouseholdRelationship::create([
+        'code' => 'HEAD',
+        'name' => 'Head of household',
+        'active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $member = \App\Models\HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Maria Lopez',
+    ]);
+
+    $service = app(SurveyResponseService::class);
+
+    $firstAnswer = $service->saveAnswer(
+        $response,
+        $question,
+        'Primera respuesta',
+        $member,
+    );
+
+    $secondAnswer = $service->saveAnswer(
+        $response,
+        $question,
+        'Segunda respuesta',
+        $member,
+    );
+
+    expect($secondAnswer->id)->toBe($firstAnswer->id)
+        ->and($secondAnswer->text_value)->toBe('Segunda respuesta');
+
+    expect(
+        Answer::query()
+            ->where('survey_response_id', $response->id)
+            ->where('question_id', $question->id)
+            ->where('household_member_id', $member->id)
+            ->count()
+    )->toBe(1);
+});
+
+it('rejects a member question without a household member', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+        'code' => 'MEMBER',
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_TEST_003',
+    ]);
+
+    $user = User::factory()->create();
+
+    $response = app(SurveyResponseService::class)->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+    );
+
+    expect(fn() => app(SurveyResponseService::class)->saveAnswer(
+        $response,
+        $question,
+        'Respuesta sin miembro',
+    ))->toThrow(
+        \InvalidArgumentException::class,
+        'Las preguntas de miembros requieren un miembro de hogar.'
+    );
+});
+
+it('rejects a general question with a household member', function () {
+    $questionnaire = Questionnaire::factory()->create();
+
+    $surveyVersion = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $surveyVersion->id,
+        'code' => 'GENERAL',
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'GENERAL_TEST_MEMBER_CONTEXT',
+    ]);
+
+    $user = User::factory()->create();
+
+    $response = app(SurveyResponseService::class)->createDraft(
+        $questionnaire->id,
+        $surveyVersion->id,
+        $user->id,
+    );
+
+    $household = \App\Models\Household::create([
+        'survey_response_id' => $response->id,
+    ]);
+
+    $relationship = \App\Models\HouseholdRelationship::create([
+        'code' => 'HEAD',
+        'name' => 'Head of household',
+        'active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $member = \App\Models\HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Maria Lopez',
+    ]);
+
+    expect(fn() => app(SurveyResponseService::class)->saveAnswer(
+        $response,
+        $question,
+        'Respuesta incorrecta',
+        $member,
+    ))->toThrow(
+        \InvalidArgumentException::class,
+        'Solo las preguntas de miembros pueden asociarse a un miembro de hogar.'
+    );
+});
+
+//-----------------------------------------------------------------------
+it('uses the answer of the same household member when evaluating a member condition', function () {
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $memberSection = Section::factory()->create([
+        'code' => 'MEMBER',
+    ]);
+
+    $triggerQuestion = Question::factory()->create([
+        'section_id' => $memberSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_TRIGGER',
+        'required' => false,
+    ]);
+
+    $dependentQuestion = Question::factory()->create([
+        'section_id' => $memberSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_DEPENDENT',
+        'required' => false,
+    ]);
+
+    QuestionCondition::create([
+        'question_id' => $dependentQuestion->id,
+        'depends_on_question_id' => $triggerQuestion->id,
+        'operator' => 'equals',
+        'expected_value' => 'SI',
+        'active' => true,
+    ]);
+
+    $response = SurveyResponse::factory()->create();
+
+    $household = Household::factory()->create([
+        'survey_response_id' => $response->id,
+    ]);
+
+    $relationship = HouseholdRelationship::factory()->create();
+
+    $memberA = HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Miembro A',
+        'age' => 30,
+        'sex' => 'M',
+    ]);
+
+    $memberB = HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Miembro B',
+        'age' => 25,
+        'sex' => 'F',
+    ]);
+
+    $service = app(SurveyResponseService::class);
+
+    $service->saveAnswer(
+        $response,
+        $triggerQuestion,
+        'SI',
+        $memberA
+    );
+
+    $service->saveAnswer(
+        $response,
+        $triggerQuestion,
+        'NO',
+        $memberB
+    );
+
+    $evaluator = app(ConditionEvaluator::class);
+
+    expect(
+        $evaluator->shouldShow(
+            $response,
+            $dependentQuestion,
+            $memberA
+        )
+    )->toBeTrue();
+
+    expect(
+        $evaluator->shouldShow(
+            $response,
+            $dependentQuestion,
+            $memberB
+        )
+    )->toBeFalse();
+});
+
+
+it('does not use another household member answer when evaluating a member condition', function () {
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $memberSection = Section::factory()->create([
+        'code' => 'MEMBER',
+    ]);
+
+    $triggerQuestion = Question::factory()->create([
+        'section_id' => $memberSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_TRIGGER_2',
+        'required' => false,
+    ]);
+
+    $dependentQuestion = Question::factory()->create([
+        'section_id' => $memberSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'MEMBER_DEPENDENT_2',
+        'required' => false,
+    ]);
+
+    QuestionCondition::create([
+        'question_id' => $dependentQuestion->id,
+        'depends_on_question_id' => $triggerQuestion->id,
+        'operator' => 'equals',
+        'expected_value' => 'SI',
+        'active' => true,
+    ]);
+
+    $response = SurveyResponse::factory()->create();
+
+    $household = Household::factory()->create([
+        'survey_response_id' => $response->id,
+    ]);
+
+    $relationship = HouseholdRelationship::factory()->create();
+
+    $memberA = HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Miembro A',
+        'age' => 30,
+        'sex' => 'M',
+    ]);
+
+    $memberB = HouseholdMember::create([
+        'household_id' => $household->id,
+        'relationship_id' => $relationship->id,
+        'name' => 'Miembro B',
+        'age' => 25,
+        'sex' => 'F',
+    ]);
+
+    $service = app(SurveyResponseService::class);
+
+    $service->saveAnswer(
+        $response,
+        $triggerQuestion,
+        'SI',
+        $memberA
+    );
+
+    $evaluator = app(ConditionEvaluator::class);
+
+    expect(
+        $evaluator->shouldShow(
+            $response,
+            $dependentQuestion,
+            $memberB
+        )
+    )->toBeFalse();
+});
+
+
+it('keeps using the general answer for non-member conditions', function () {
+    $questionType = QuestionType::factory()->create([
+        'code' => 'text',
+    ]);
+
+    $generalSection = Section::factory()->create([
+        'code' => 'GENERAL',
+    ]);
+
+    $triggerQuestion = Question::factory()->create([
+        'section_id' => $generalSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'GENERAL_TRIGGER_CONTEXT',
+        'required' => false,
+    ]);
+
+    $dependentQuestion = Question::factory()->create([
+        'section_id' => $generalSection->id,
+        'question_type_id' => $questionType->id,
+        'code' => 'GENERAL_DEPENDENT_CONTEXT',
+        'required' => false,
+    ]);
+
+    QuestionCondition::create([
+        'question_id' => $dependentQuestion->id,
+        'depends_on_question_id' => $triggerQuestion->id,
+        'operator' => 'equals',
+        'expected_value' => 'SI',
+        'active' => true,
+    ]);
+
+    $service = app(SurveyResponseService::class);
+
+    $response = SurveyResponse::factory()->create();
+
+    $service->saveAnswer(
+        $response,
+        $triggerQuestion,
+        'SI'
+    );
+
+    $evaluator = app(ConditionEvaluator::class);
+
+    expect(
+        $evaluator->shouldShow(
+            $response,
+            $dependentQuestion
+        )
+    )->toBeTrue();
+});
