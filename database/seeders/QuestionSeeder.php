@@ -25,7 +25,7 @@ class QuestionSeeder extends Seeder
 
         $section = Section::where([
             'survey_version_id' => $version->id,
-            'name' => 'I. Información General de la Encuesta',
+            'code' => 'GENERAL',
         ])->firstOrFail();
 
         $types = QuestionType::pluck('id', 'code');

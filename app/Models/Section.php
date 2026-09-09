@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class Section extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'survey_version_id',
         'parent_id',
+        'code',
         'name',
         'description',
         'sort_order',

@@ -25,26 +25,32 @@ class SectionSeeder extends Seeder
 
         $sections = [
             [
+                'code' => 'GENERAL',
                 'name' => 'I. Información General de la Encuesta',
                 'sort_order' => 1,
             ],
             [
+                'code' => 'INFORMANT',
                 'name' => 'II. Información del Informante',
                 'sort_order' => 2,
             ],
             [
+                'code' => 'HOUSING',
                 'name' => 'III. Información de Vivienda y Hábitat',
                 'sort_order' => 3,
             ],
             [
+                'code' => 'HOUSEHOLD',
                 'name' => 'IV. Hogar',
                 'sort_order' => 4,
             ],
             [
+                'code' => 'MEMBER',
                 'name' => 'V. Miembro',
                 'sort_order' => 5,
             ],
             [
+                'code' => 'CLOSURE',
                 'name' => 'VI. Preguntas de Cierre',
                 'sort_order' => 6,
             ],
@@ -54,9 +60,10 @@ class SectionSeeder extends Seeder
             Section::updateOrCreate(
                 [
                     'survey_version_id' => $version->id,
-                    'name' => $section['name'],
+                    'code' => $section['code'],
                 ],
                 [
+                    'name' => $section['name'],
                     'parent_id' => null,
                     'sort_order' => $section['sort_order'],
                     'active' => true,
@@ -66,15 +73,16 @@ class SectionSeeder extends Seeder
 
         $housing = Section::where([
             'survey_version_id' => $version->id,
-            'name' => 'III. Información de Vivienda y Hábitat',
+            'code' => 'HOUSING',
         ])->firstOrFail();
 
         Section::updateOrCreate(
             [
                 'survey_version_id' => $version->id,
-                'name' => 'III.1 Información del Local',
+                'code' => 'LOCAL',
             ],
             [
+                'name' => 'III.1 Información del Local',
                 'parent_id' => $housing->id,
                 'sort_order' => 1,
                 'active' => true,
