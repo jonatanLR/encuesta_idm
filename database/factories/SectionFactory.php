@@ -23,6 +23,7 @@ class SectionFactory extends Factory
             //
             'survey_version_id' => SurveyVersion::factory(),
             'parent_id' => null,
+            'code' => fake()->unique()->bothify('SECTION_########'),
             'name' => fake()->sentence(3),
             'description' => fake()->optional()->sentence(),
             'sort_order' => fake()->numberBetween(1, 20),

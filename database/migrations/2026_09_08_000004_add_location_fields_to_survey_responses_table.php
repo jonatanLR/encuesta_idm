@@ -28,10 +28,9 @@ return new class extends Migration
                     ->update(['public_id' => (string) Str::ulid()]);
             });
 
-        DB::statement("
-            ALTER TABLE survey_responses
-            MODIFY public_id VARCHAR(26) NOT NULL
-        ");
+        Schema::table('survey_responses', function (Blueprint $table) {
+            $table->string('public_id', 26)->nullable(false)->change();
+        });
 
         Schema::table('survey_responses', function (Blueprint $table) {
             $table->unique('public_id');
