@@ -280,8 +280,11 @@ it('requires unanswered member questions when member capture has started', funct
         'name' => 'Miembro activo',
         'age' => 30,
         'sex' => 'M',
-        'capture_started_at' => now(),
     ]);
+
+    $member->forceFill([
+        'capture_started_at' => now(),
+    ])->save();
 
     $validator = app(SurveyResponseValidator::class);
 
@@ -401,8 +404,11 @@ it('validates member answers independently for each started member', function ()
         'name' => 'Miembro A',
         'age' => 30,
         'sex' => 'M',
-        'capture_started_at' => now(),
     ]);
+
+    $memberA->forceFill([
+        'capture_started_at' => now(),
+    ])->save();
 
     $memberB = HouseholdMember::create([
         'household_id' => $household->id,
@@ -410,8 +416,11 @@ it('validates member answers independently for each started member', function ()
         'name' => 'Miembro B',
         'age' => 25,
         'sex' => 'F',
-        'capture_started_at' => now(),
     ]);
+
+    $memberB->forceFill([
+        'capture_started_at' => now(),
+    ])->save();
 
     $service->saveAnswer(
         $response,
