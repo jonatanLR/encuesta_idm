@@ -138,7 +138,7 @@ class QuestionSeeder extends Seeder
                 'label' => 'Tome una fotografía clara del inmueble',
                 'description' => 'En posición horizontal y que se aprecie el predio que esté a la par. Subir archivo menor de 10 MB.',
                 'type' => 'image',
-                'required' => true,
+                'required' => false,
                 'sort_order' => 10,
             ],
             [
