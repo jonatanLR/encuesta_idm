@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Answer extends Model
 {
@@ -59,6 +60,13 @@ class Answer extends Model
     {
         return $this->hasMany(
             AnswerOption::class
+        );
+    }
+
+    public function surveyFiles(): HasMany
+    {
+        return $this->hasMany(
+            SurveyFile::class
         );
     }
 }
