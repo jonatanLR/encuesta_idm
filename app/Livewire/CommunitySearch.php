@@ -17,14 +17,25 @@ class CommunitySearch extends Component
 
     public int $municipalityId;
 
-    public function mount(): void
-    {
+    public function mount(
+        ?int $initialCommunityId = null,
+        ?string $initialCommunityName = null
+    ): void {
         $municipality = Municipality::where(
             'name',
             'Distrito Central'
         )->firstOrFail();
 
         $this->municipalityId = $municipality->id;
+
+        if ($initialCommunityId !== null) {
+            $this->selectedCommunityId = $initialCommunityId;
+            $this->selectedCommunityName = $initialCommunityName;
+
+            if ($initialCommunityName !== null) {
+                $this->search = $initialCommunityName;
+            }
+        }
     }
 
     public function selectCommunity(
@@ -40,6 +51,11 @@ class CommunitySearch extends Component
         $this->selectedCommunityId = $community->id;
         $this->selectedCommunityName = $community->name;
         $this->search = $community->name;
+        $this->dispatch(
+            'community-selected',
+            communityId: $community->id,
+            communityName: $community->name
+        );
     }
 
     public function clearSelection(): void
@@ -47,6 +63,8 @@ class CommunitySearch extends Component
         $this->selectedCommunityId = null;
         $this->selectedCommunityName = null;
         $this->search = '';
+
+        $this->dispatch('community-cleared');
     }
 
     public function render(

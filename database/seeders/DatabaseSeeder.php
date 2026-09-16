@@ -14,7 +14,9 @@ class DatabaseSeeder extends Seeder
             QuestionnaireSeeder::class,
             SurveyVersionSeeder::class,
             SectionSeeder::class,
+            HouseholdRelationshipSeeder::class,
             QuestionSeeder::class,
+            QuestionOptionSeeder::class,
             QuestionConditionSeeder::class,
 
             MunicipalitySeeder::class,

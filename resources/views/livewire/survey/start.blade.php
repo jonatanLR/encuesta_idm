@@ -1,15 +1,19 @@
 <div class="mx-auto w-full max-w-4xl">
-    <flux:heading size="xl">Iniciar encuesta</flux:heading>
 
-    <flux:text class="mt-2">
-        Esta será la pantalla de inicio de la encuesta.
-    </flux:text>
+    <div class="text-center">
 
-    <flux:card class="mt-6">
-        <flux:heading size="lg">Bienvenido</flux:heading>
+        <flux:heading size="xl">
+            Preparando encuesta...
+        </flux:heading>
 
         <flux:text class="mt-2">
-            Próximamente podrás comenzar a responder la encuesta desde aquí.
+            Un momento, estamos preparando la encuesta.
         </flux:text>
-    </flux:card>
+
+    </div>
+
+    <div class="mt-6 flex justify-center">
+        <flux:icon.loading class="size-8" />
+    </div>
+
 </div>
