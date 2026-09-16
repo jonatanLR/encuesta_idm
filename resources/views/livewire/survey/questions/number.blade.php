@@ -1,5 +1,4 @@
 @php
-    $answer = $response->answers->firstWhere('question_id', $question->id);
     $numberValue = $answer?->number_value;
 
     if ($numberValue !== null) {

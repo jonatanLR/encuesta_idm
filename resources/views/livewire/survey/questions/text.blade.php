@@ -15,8 +15,7 @@
         @endif
     </div>
 
-    <input id="question-{{ $question->id }}" type="text"
-        value="{{ $response->answers->firstWhere('question_id', $question->id)?->text_value }}"
+    <input id="question-{{ $question->id }}" type="text" value="{{ $answer?->text_value }}"
         wire:change="saveText({{ $question->id }}, $event.target.value)"
         class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm
                shadow-sm focus:border-blue-500 focus:ring-blue-500"

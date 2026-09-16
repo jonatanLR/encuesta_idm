@@ -133,6 +133,11 @@ class SurveyResponseService
                     $value
                 ),
 
+                'boolean' => $this->saveBooleanAnswer(
+                    $answer,
+                    $value
+                ),
+
                 'single_choice' => $this->saveSingleChoiceAnswer(
                     $answer,
                     $value
@@ -155,6 +160,7 @@ class SurveyResponseService
         $answer->text_value = null;
         $answer->number_value = null;
         $answer->date_value = null;
+        $answer->boolean_value = null;
         $answer->option_id = null;
     }
 
@@ -189,6 +195,26 @@ class SurveyResponseService
         mixed $value
     ): Answer {
         $answer->date_value = $value;
+        $answer->save();
+
+        return $answer;
+    }
+
+    protected function saveBooleanAnswer(
+        Answer $answer,
+        mixed $value
+    ): Answer {
+        if (! is_bool($value) && ! in_array($value, [0, 1, '0', '1'], true)) {
+            throw new InvalidArgumentException(
+                'El valor debe ser booleano.'
+            );
+        }
+
+        $answer->boolean_value = filter_var(
+            $value,
+            FILTER_VALIDATE_BOOLEAN
+        );
+
         $answer->save();
 
         return $answer;

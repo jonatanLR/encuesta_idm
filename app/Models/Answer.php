@@ -19,11 +19,13 @@ class Answer extends Model
         'date_value',
         'option_id',
         'household_member_id',
+        'boolean_value',
     ];
 
     protected $casts = [
         'number_value' => 'decimal:4',
         'date_value' => 'date',
+        'boolean_value' => 'boolean',
     ];
 
     public function surveyResponse()
