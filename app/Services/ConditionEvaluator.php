@@ -3,12 +3,9 @@
 namespace App\Services;
 
 use App\Models\Answer;
-use App\Models\Household;
 use App\Models\HouseholdMember;
-use App\Models\HouseholdRelationship;
 use App\Models\Question;
 use App\Models\QuestionCondition;
-use App\Models\QuestionType;
 use App\Models\SurveyResponse;
 
 class ConditionEvaluator
@@ -18,8 +15,31 @@ class ConditionEvaluator
         Question $question,
         ?HouseholdMember $householdMember = null
     ): bool {
+        return $this->evaluateQuestionVisibility(
+            $response,
+            $question,
+            $householdMember,
+            []
+        );
+    }
+
+    protected function evaluateQuestionVisibility(
+        SurveyResponse $response,
+        Question $question,
+        ?HouseholdMember $householdMember,
+        array $visitedQuestionIds
+    ): bool {
+        $questionId = $question->id;
+
+        if (in_array($questionId, $visitedQuestionIds, true)) {
+            return false;
+        }
+
+        $visitedQuestionIds[] = $questionId;
+
         $conditions = $question->conditions()
             ->where('active', true)
+            ->with('dependsOnQuestion')
             ->get();
 
         if ($conditions->isEmpty()) {
@@ -27,6 +47,21 @@ class ConditionEvaluator
         }
 
         foreach ($conditions as $condition) {
+            $dependsOnQuestion = $condition->dependsOnQuestion;
+
+            if ($dependsOnQuestion === null) {
+                return false;
+            }
+
+            if (! $this->evaluateQuestionVisibility(
+                $response,
+                $dependsOnQuestion,
+                $householdMember,
+                $visitedQuestionIds
+            )) {
+                return false;
+            }
+
             if (! $this->evaluateCondition(
                 $response,
                 $condition,
@@ -106,6 +141,14 @@ class ConditionEvaluator
         if ($answer->date_value !== null) {
             return $answer->date_value->format('Y-m-d') ===
                 $condition->expected_value;
+        }
+
+        if ($answer->boolean_value !== null) {
+            return $answer->boolean_value ===
+                filter_var(
+                    $condition->expected_value,
+                    FILTER_VALIDATE_BOOLEAN
+                );
         }
 
         return false;

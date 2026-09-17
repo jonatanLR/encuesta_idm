@@ -10,13 +10,20 @@ use App\Services\SurveyResponseService;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use App\Models\Household;
 use App\Models\HouseholdMember;
 use App\Models\HouseholdRelationship;
 use App\Services\HouseholdMemberService;
+use Illuminate\Support\Facades\Storage;
+use App\Models\SurveyFile;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use App\Services\ConditionEvaluator;
 
 class Form extends Component
 {
+    use WithFileUploads;
+
     public SurveyResponse $response;
 
     public int $currentSectionIndex = 0;
@@ -30,6 +37,9 @@ class Form extends Component
     public ?string $memberAddedMessage = null;
 
     public array $memberForm = [];
+
+    public $dniFrontPhoto;
+    public $dniBackPhoto;
 
     #[On('community-selected')]
     public function communitySelected(
@@ -65,6 +75,7 @@ class Form extends Component
                 $query->whereNull('deleted_at')
                     ->orderBy('id');
             },
+            'household.householdMembers.surveyFiles',
         ]);
 
         $this->selectedMemberId = $this->response->household
@@ -213,7 +224,7 @@ class Form extends Component
         ]);
 
         $this->response->load([
-            'household.householdMembers',
+            'household.householdMembers.surveyFiles',
         ]);
 
         $this->selectedMemberId = $member->id;
@@ -241,7 +252,7 @@ class Form extends Component
             'name' => $value,
         ]);
 
-        $this->response->load('household.householdMembers');
+        $this->response->load('household.householdMembers.surveyFiles');
     }
 
     public function saveMemberAge(
@@ -276,7 +287,7 @@ class Form extends Component
             'age' => $age,
         ]);
 
-        $this->response->load('household.householdMembers');
+        $this->response->load('household.householdMembers.surveyFiles');
     }
 
     public function saveMemberSex(
@@ -295,7 +306,7 @@ class Form extends Component
             'sex' => $value,
         ]);
 
-        $this->response->load('household.householdMembers');
+        $this->response->load('household.householdMembers.surveyFiles');
     }
 
     public function updatedMemberFormSex($value): void
@@ -308,6 +319,121 @@ class Form extends Component
             $this->selectedMemberId,
             $value
         );
+    }
+
+    public function updatedDniFrontPhoto($value): void
+    {
+        if (! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->saveDniFrontPhoto();
+    }
+
+    public function updatedDniBackPhoto($value): void
+    {
+        if (! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->saveDniBackPhoto();
+    }
+
+    public function saveDniFrontPhoto(): void
+    {
+        if (! $this->dniFrontPhoto instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->saveDniPhoto(
+            file: $this->dniFrontPhoto,
+            fileType: 'dni_front',
+        );
+
+        $this->dniFrontPhoto = null;
+    }
+
+    public function saveDniBackPhoto(): void
+    {
+        if (! $this->dniBackPhoto instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->saveDniPhoto(
+            file: $this->dniBackPhoto,
+            fileType: 'dni_back',
+        );
+
+        $this->dniBackPhoto = null;
+    }
+
+    protected function saveDniPhoto(
+        TemporaryUploadedFile $file,
+        string $fileType
+    ): void {
+        if ($this->selectedMemberId === null) {
+            throw new \InvalidArgumentException(
+                'Debe seleccionar un miembro del hogar.'
+            );
+        }
+
+        if (! in_array($fileType, ['dni_front', 'dni_back'], true)) {
+            throw new \InvalidArgumentException(
+                'El tipo de fotografía del DNI no es válido.'
+            );
+        }
+
+        $member = $this->getMemberForEditing(
+            $this->selectedMemberId
+        );
+
+        $rules = [
+            'image',
+            'mimes:jpg,jpeg,png',
+            'max:5120',
+        ];
+
+        $validator = validator(
+            ['file' => $file],
+            ['file' => $rules],
+            [
+                'file.image' => 'La fotografía debe ser una imagen.',
+                'file.mimes' => 'La fotografía debe estar en formato JPG o PNG.',
+                'file.max' => 'La fotografía no puede superar los 5 MB.',
+            ]
+        );
+
+        $validator->validate();
+
+        $existingFile = $member->surveyFiles()
+            ->where('file_type', $fileType)
+            ->first();
+
+        if ($existingFile !== null) {
+            Storage::disk($existingFile->disk)
+                ->delete($existingFile->path);
+
+            $existingFile->delete();
+        }
+
+        $directory = sprintf(
+            'surveys/%s/members/%s/dni',
+            $this->response->public_id,
+            $member->public_id,
+        );
+
+        $path = $file->store($directory, 'public');
+
+        $member->surveyFiles()->create([
+            'survey_response_id' => $this->response->id,
+            'household_member_id' => $member->id,
+            'file_type' => $fileType,
+            'disk' => 'public',
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
     }
 
     public function saveMemberRelationship(
@@ -338,7 +464,10 @@ class Form extends Component
             'relationship_id' => $relationship->id,
         ]);
 
-        $this->response->load('household.householdMembers.householdRelationship');
+        $this->response->load([
+            'household.householdMembers.householdRelationship',
+            'household.householdMembers.surveyFiles',
+        ]);
     }
 
     public function saveMemberDni(
@@ -353,7 +482,7 @@ class Form extends Component
             'dni' => $value !== '' ? $value : null,
         ]);
 
-        $this->response->load('household.householdMembers');
+        $this->response->load('household.householdMembers.surveyFiles');
     }
 
     protected function getMemberForEditing(
@@ -400,7 +529,7 @@ class Form extends Component
         );
 
         $this->response->load([
-            'household.householdMembers',
+            'household.householdMembers.surveyFiles',
         ]);
 
         $this->selectedMemberId = $memberId;
@@ -431,6 +560,17 @@ class Form extends Component
         }
 
         return $member;
+    }
+
+    protected function shouldShowQuestion(Question $question): bool
+    {
+        $member = $this->getMemberContext($question);
+
+        return app(ConditionEvaluator::class)->shouldShow(
+            $this->response,
+            $question,
+            $member,
+        );
     }
 
     protected function getAnswer(Question $question): ?Answer
@@ -630,5 +770,17 @@ class Form extends Component
         ]);
 
         return $household->load('householdMembers');
+    }
+
+    protected function getDniFrontPhoto(?HouseholdMember $member): ?SurveyFile
+    {
+        return $member?->surveyFiles
+            ->firstWhere('file_type', 'dni_front');
+    }
+
+    protected function getDniBackPhoto(?HouseholdMember $member): ?SurveyFile
+    {
+        return $member?->surveyFiles
+            ->firstWhere('file_type', 'dni_back');
     }
 }

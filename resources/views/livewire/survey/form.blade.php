@@ -167,6 +167,9 @@
 
                 @if ($currentSection?->code !== 'MEMBER' || $selectedMember?->capture_started_at)
                     @forelse ($questions as $question)
+                        @if (!$this->shouldShowQuestion($question))
+                            @continue
+                        @endif
                         @if ($question->code === 'GENERAL_002')
                             @include('livewire.survey.questions.community', [
                                 'question' => $question,
@@ -235,6 +238,59 @@
                                         </div>
                                     @break
                                 @endswitch
+                            @endif
+
+                            @continue
+                        @elseif ($currentSection?->code === 'MEMBER' && in_array($question->code, ['MEMBER_006', 'MEMBER_007'], true))
+                            @if ($selectedMember)
+                                @php
+                                    $dniPhoto =
+                                        $question->code === 'MEMBER_006'
+                                            ? $this->getDniFrontPhoto($selectedMember)
+                                            : $this->getDniBackPhoto($selectedMember);
+
+                                    $photoProperty =
+                                        $question->code === 'MEMBER_006' ? 'dniFrontPhoto' : 'dniBackPhoto';
+
+                                @endphp
+
+                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                    <div class="mb-3">
+                                        <flux:heading size="sm">
+                                            {{ $question->label }}
+                                        </flux:heading>
+                                    </div>
+
+                                    @if ($dniPhoto)
+                                        <div class="mb-4">
+                                            <img src="{{ Storage::disk($dniPhoto->disk)->url($dniPhoto->path) }}"
+                                                alt="{{ $question->label }}"
+                                                class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                        </div>
+
+                                        <p class="mb-3 text-sm text-zinc-600">
+                                            Fotografía registrada. Puede seleccionar una nueva para reemplazarla.
+                                        </p>
+                                    @endif
+
+                                    <input type="file" wire:model="{{ $photoProperty }}"
+                                        accept="image/jpeg,image/png"
+                                        class="block w-full text-sm text-zinc-600
+                                               file:mr-4 file:rounded-lg file:border-0
+                                               file:bg-zinc-100 file:px-4 file:py-2
+                                               file:text-sm file:font-medium" />
+
+                                    <div wire:loading wire:target="{{ $photoProperty }}"
+                                        class="mt-2 text-sm text-zinc-500">
+                                        Subiendo fotografía...
+                                    </div>
+
+                                    @error($photoProperty)
+                                        <p class="mt-2 text-sm text-red-600">
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
+                                </div>
                             @endif
 
                             @continue
