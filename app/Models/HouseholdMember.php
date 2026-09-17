@@ -21,6 +21,7 @@ class HouseholdMember extends Model
         'age',
         'sex',
         'dni',
+        'capture_started_at',
     ];
 
     protected static function booted(): void

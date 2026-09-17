@@ -80,6 +80,12 @@ class SurveyResponseService
             );
         }
 
+        if ($householdMember->capture_started_at === null) {
+            throw new InvalidArgumentException(
+                'La captura de información del miembro aún no ha iniciado.'
+            );
+        }
+
         $belongsToResponse = $response->household()
             ->whereKey($householdMember->household_id)
             ->exists();

@@ -3353,12 +3353,14 @@ it('saves separate answers for different household members', function () {
         'household_id' => $household->id,
         'relationship_id' => $relationship->id,
         'name' => 'Maria Lopez',
+        'capture_started_at' => now(),
     ]);
 
     $memberTwo = \App\Models\HouseholdMember::create([
         'household_id' => $household->id,
         'relationship_id' => $relationship->id,
         'name' => 'Carlos Lopez',
+        'capture_started_at' => now(),
     ]);
 
     $service = app(SurveyResponseService::class);
@@ -3436,6 +3438,7 @@ it('updates an existing answer for the same household member', function () {
         'household_id' => $household->id,
         'relationship_id' => $relationship->id,
         'name' => 'Maria Lopez',
+        'capture_started_at' => now(),
     ]);
 
     $service = app(SurveyResponseService::class);
@@ -3610,6 +3613,7 @@ it('uses the answer of the same household member when evaluating a member condit
         'name' => 'Miembro A',
         'age' => 30,
         'sex' => 'M',
+        'capture_started_at' => now(),
     ]);
 
     $memberB = HouseholdMember::create([
@@ -3618,6 +3622,7 @@ it('uses the answer of the same household member when evaluating a member condit
         'name' => 'Miembro B',
         'age' => 25,
         'sex' => 'F',
+        'capture_started_at' => now(),
     ]);
 
     $service = app(SurveyResponseService::class);
@@ -3701,6 +3706,7 @@ it('does not use another household member answer when evaluating a member condit
         'name' => 'Miembro A',
         'age' => 30,
         'sex' => 'M',
+        'capture_started_at' => now(),
     ]);
 
     $memberB = HouseholdMember::create([
@@ -3709,6 +3715,7 @@ it('does not use another household member answer when evaluating a member condit
         'name' => 'Miembro B',
         'age' => 25,
         'sex' => 'F',
+        'capture_started_at' => now(),
     ]);
 
     $service = app(SurveyResponseService::class);

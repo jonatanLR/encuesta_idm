@@ -21,6 +21,15 @@ class Form extends Component
 
     public int $currentSectionIndex = 0;
     public ?int $selectedMemberId = null;
+    public bool $showAddMemberModal = false;
+
+    public string $newMemberName = '';
+
+    public ?int $newMemberRelationshipId = null;
+
+    public ?string $memberAddedMessage = null;
+
+    public array $memberForm = [];
 
     #[On('community-selected')]
     public function communitySelected(
@@ -61,6 +70,10 @@ class Form extends Component
         $this->selectedMemberId = $this->response->household
             ?->householdMembers
             ->first()?->id;
+
+        if ($this->selectedMemberId !== null) {
+            $this->loadMemberForm($this->selectedMemberId);
+        }
     }
 
     public function nextSection(): void
@@ -122,6 +135,252 @@ class Form extends Component
         }
 
         $this->selectedMemberId = $memberId;
+
+        $this->loadMemberForm($memberId);
+    }
+
+    protected function loadMemberForm(int $memberId): void
+    {
+        $member = $this->response->household?->householdMembers
+            ->firstWhere('id', $memberId);
+
+        if ($member === null) {
+            return;
+        }
+
+        $this->memberForm = [
+            'member_id' => $member->id,
+            'name' => $member->name ?? '',
+            'age' => $member->age !== null
+                ? (string) $member->age
+                : '',
+            'sex' => $member->sex ?? '',
+            'relationship_id' => $member->relationship_id,
+            'dni' => $member->dni ?? '',
+        ];
+    }
+
+    public function openAddMemberModal(): void
+    {
+        $this->newMemberName = '';
+        $this->newMemberRelationshipId = null;
+        $this->memberAddedMessage = null;
+        $this->resetValidation();
+
+        $this->showAddMemberModal = true;
+    }
+
+    public function closeAddMemberModal(): void
+    {
+        $this->showAddMemberModal = false;
+    }
+
+    public function addMember(): void
+    {
+        $this->validate([
+            'newMemberName' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'newMemberRelationshipId' => [
+                'required',
+                'integer',
+                'exists:household_relationships,id',
+            ],
+        ], [
+            'newMemberName.required' => 'El nombre completo es obligatorio.',
+            'newMemberName.max' => 'El nombre completo no puede superar los 255 caracteres.',
+            'newMemberRelationshipId.required' => 'Debe seleccionar una relación.',
+            'newMemberRelationshipId.exists' => 'La relación seleccionada no es válida.',
+        ]);
+
+        $household = $this->ensureHousehold();
+
+        $relationship = HouseholdRelationship::query()
+            ->whereKey($this->newMemberRelationshipId)
+            ->where('active', true)
+            ->where('code', '!=', 'HEAD')
+            ->firstOrFail();
+
+        $member = $household->householdMembers()->create([
+            'relationship_id' => $relationship->id,
+            'name' => trim($this->newMemberName),
+            'age' => null,
+            'sex' => null,
+            'dni' => null,
+            'capture_started_at' => null,
+        ]);
+
+        $this->response->load([
+            'household.householdMembers',
+        ]);
+
+        $this->selectedMemberId = $member->id;
+
+        $this->newMemberName = '';
+        $this->newMemberRelationshipId = null;
+        $this->showAddMemberModal = false;
+
+        $this->memberAddedMessage = 'Miembro agregado correctamente.';
+    }
+
+    public function saveMemberName(
+        int $memberId,
+        string $value
+    ): void {
+        $member = $this->getMemberForEditing($memberId);
+
+        $value = trim($value);
+
+        if ($value === '') {
+            return;
+        }
+
+        $member->update([
+            'name' => $value,
+        ]);
+
+        $this->response->load('household.householdMembers');
+    }
+
+    public function saveMemberAge(
+        int $memberId,
+        mixed $value
+    ): void {
+        $member = $this->getMemberForEditing($memberId);
+
+        if ($value === null || $value === '') {
+            $member->update([
+                'age' => null,
+            ]);
+
+            return;
+        }
+
+        if (! is_numeric($value)) {
+            throw new \InvalidArgumentException(
+                'La edad debe ser un número.'
+            );
+        }
+
+        $age = (float) $value;
+
+        if ($age < 0 || $age > 120) {
+            throw new \InvalidArgumentException(
+                'La edad debe estar entre 0 y 120 años.'
+            );
+        }
+
+        $member->update([
+            'age' => $age,
+        ]);
+
+        $this->response->load('household.householdMembers');
+    }
+
+    public function saveMemberSex(
+        int $memberId,
+        string $value
+    ): void {
+        $member = $this->getMemberForEditing($memberId);
+
+        if (! in_array($value, ['femenino', 'masculino'], true)) {
+            throw new \InvalidArgumentException(
+                'El sexo seleccionado no es válido.'
+            );
+        }
+
+        $member->update([
+            'sex' => $value,
+        ]);
+
+        $this->response->load('household.householdMembers');
+    }
+
+    public function updatedMemberFormSex($value): void
+    {
+        if ($this->selectedMemberId === null) {
+            return;
+        }
+
+        $this->saveMemberSex(
+            $this->selectedMemberId,
+            $value
+        );
+    }
+
+    public function saveMemberRelationship(
+        int $memberId,
+        int $relationshipId
+    ): void {
+        $member = $this->getMemberForEditing($memberId);
+
+        $relationship = HouseholdRelationship::query()
+            ->whereKey($relationshipId)
+            ->where('active', true)
+            ->where('code', '!=', 'HEAD')
+            ->first();
+
+        if ($relationship === null) {
+            throw new \InvalidArgumentException(
+                'La relación seleccionada no es válida.'
+            );
+        }
+
+        if ($member->householdRelationship?->code === 'HEAD') {
+            throw new \InvalidArgumentException(
+                'El jefe/a de hogar no puede cambiar su relación.'
+            );
+        }
+
+        $member->update([
+            'relationship_id' => $relationship->id,
+        ]);
+
+        $this->response->load('household.householdMembers.householdRelationship');
+    }
+
+    public function saveMemberDni(
+        int $memberId,
+        string $value
+    ): void {
+        $member = $this->getMemberForEditing($memberId);
+
+        $value = trim($value);
+
+        $member->update([
+            'dni' => $value !== '' ? $value : null,
+        ]);
+
+        $this->response->load('household.householdMembers');
+    }
+
+    protected function getMemberForEditing(
+        int $memberId
+    ): HouseholdMember {
+        $member = $this->response->household?->householdMembers
+            ->firstWhere('id', $memberId);
+
+        if ($member === null) {
+            throw new \InvalidArgumentException(
+                'El miembro no pertenece al hogar de esta encuesta.'
+            );
+        }
+
+        if ($member->trashed()) {
+            throw new \InvalidArgumentException(
+                'El miembro eliminado no puede modificarse.'
+            );
+        }
+
+        if ($member->capture_started_at === null) {
+            throw new \InvalidArgumentException(
+                'La captura de información del miembro aún no ha iniciado.'
+            );
+        }
+
+        return $member;
     }
 
     public function startMemberCapture(
@@ -194,11 +453,18 @@ class Form extends Component
 
         $members = $this->response->household?->householdMembers ?? collect();
 
+        $relationships = HouseholdRelationship::query()
+            ->where('active', true)
+            ->where('code', '!=', 'HEAD')
+            ->orderBy('sort_order')
+            ->get();
+
         return view('livewire.survey.form', [
             'sections' => $sections,
             'currentSection' => $currentSection,
             'questions' => $currentSection?->questions ?? collect(),
             'members' => $members,
+            'relationships' => $relationships,
         ]);
     }
 
