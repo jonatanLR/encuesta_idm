@@ -228,6 +228,7 @@ class Form extends Component
         ]);
 
         $this->selectedMemberId = $member->id;
+        $this->loadMemberForm($member->id);
 
         $this->newMemberName = '';
         $this->newMemberRelationshipId = null;
@@ -708,7 +709,7 @@ class Form extends Component
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
 
-        if ($question->questionType->code !== 'number') {
+        if (! in_array($question->questionType->code, ['number', 'decimal'], true)) {
             abort(404);
         }
 

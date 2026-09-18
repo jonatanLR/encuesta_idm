@@ -129,7 +129,8 @@ class SurveyResponseService
                     $value
                 ),
 
-                'number' => $this->saveNumberAnswer(
+                'number',
+                'decimal' => $this->saveNumberAnswer(
                     $answer,
                     $value
                 ),

@@ -87,7 +87,16 @@
 
             {{-- Preguntas de la sección --}}
             <div class="mt-6 space-y-6">
-
+                {{-- <div class="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm">
+                    DEBUG:
+                    sección={{ $currentSection?->code }}
+                    |
+                    índice={{ $currentSectionIndex }}
+                    |
+                    preguntas={{ $questions->count() }}
+                    |
+                    códigos={{ $questions->pluck('code')->join(', ') }}
+                </div> --}}
                 @if ($currentSection?->code === 'MEMBER')
                     <div class="mb-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                         <div class="mb-3">
@@ -167,173 +176,175 @@
 
                 @if ($currentSection?->code !== 'MEMBER' || $selectedMember?->capture_started_at)
                     @forelse ($questions as $question)
-                        @if (!$this->shouldShowQuestion($question))
-                            @continue
-                        @endif
-                        @if ($question->code === 'GENERAL_002')
-                            @include('livewire.survey.questions.community', [
-                                'question' => $question,
-                                'response' => $response,
-                            ])
-                        @elseif (
-                            $currentSection?->code === 'MEMBER' &&
-                                in_array($question->code, ['MEMBER_001', 'MEMBER_002', 'MEMBER_003', 'MEMBER_004', 'MEMBER_005'], true))
-                            @if ($selectedMember)
-                                @switch($question->code)
-                                    {{-- MEMBER_001: Nombre completo --}}
-                                    @case('MEMBER_001')
-                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                            <flux:input label="{{ $question->label }}" placeholder="Ingrese el nombre completo"
-                                                wire:model.blur="memberForm.name"
-                                                wire:blur="saveMemberName({{ $selectedMember->id }}, $event.target.value)" />
-                                        </div>
-                                    @break
+                        @if ($this->shouldShowQuestion($question))
+                            <div
+                                wire:key="question-{{ $response->id }}-{{ $selectedMember?->id ?? 'general' }}-{{ $question->id }}">
+                                @if ($question->code === 'GENERAL_002')
+                                    @include('livewire.survey.questions.community', [
+                                        'question' => $question,
+                                        'response' => $response,
+                                    ])
+                                @elseif (
+                                    $currentSection?->code === 'MEMBER' &&
+                                        in_array($question->code, ['MEMBER_001', 'MEMBER_002', 'MEMBER_003', 'MEMBER_004', 'MEMBER_005'], true))
+                                    @if ($selectedMember)
+                                        @switch($question->code)
+                                            {{-- MEMBER_001: Nombre completo --}}
+                                            @case('MEMBER_001')
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    <flux:input label="{{ $question->label }}"
+                                                        placeholder="Ingrese el nombre completo"
+                                                        wire:model.blur="memberForm.name"
+                                                        wire:blur="saveMemberName({{ $selectedMember->id }}, $event.target.value)" />
+                                                </div>
+                                            @break
 
-                                    {{-- MEMBER_002: Edad --}}
-                                    @case('MEMBER_002')
-                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                            <flux:input type="number" step="0.01" min="0" max="120"
-                                                label="{{ $question->label }}" placeholder="Ingrese la edad"
-                                                wire:model.blur="memberForm.age"
-                                                wire:blur="saveMemberAge({{ $selectedMember->id }}, $event.target.value)" />
-                                        </div>
-                                    @break
+                                            {{-- MEMBER_002: Edad --}}
+                                            @case('MEMBER_002')
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    <flux:input type="number" step="0.01" min="0" max="120"
+                                                        label="{{ $question->label }}" placeholder="Ingrese la edad"
+                                                        wire:model.blur="memberForm.age"
+                                                        wire:blur="saveMemberAge({{ $selectedMember->id }}, $event.target.value)" />
+                                                </div>
+                                            @break
 
-                                    {{-- MEMBER_003: Sexo --}}
-                                    @case('MEMBER_003')
-                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                            <flux:radio.group label="{{ $question->label }}" wire:model="memberForm.sex">
-                                                @foreach ($question->options as $option)
-                                                    <flux:radio value="{{ $option->value }}" label="{{ $option->label }}" />
-                                                @endforeach
-                                            </flux:radio.group>
-                                        </div>
-                                    @break
+                                            {{-- MEMBER_003: Sexo --}}
+                                            @case('MEMBER_003')
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    <flux:radio.group label="{{ $question->label }}"
+                                                        wire:model="memberForm.sex">
+                                                        @foreach ($question->options as $option)
+                                                            <flux:radio value="{{ $option->value }}"
+                                                                label="{{ $option->label }}" />
+                                                        @endforeach
+                                                    </flux:radio.group>
+                                                </div>
+                                            @break
 
-                                    {{-- MEMBER_004: Relación con el jefe/a --}}
-                                    @case('MEMBER_004')
-                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                            @if ($selectedMember->householdRelationship?->code === 'HEAD')
-                                                <flux:input label="{{ $question->label }}" value="Jefe/a de hogar" readonly />
-                                            @else
-                                                <flux:select label="{{ $question->label }}" placeholder="Seleccione"
-                                                    wire:model="memberForm.relationship_id"
-                                                    wire:change="saveMemberRelationship({{ $selectedMember->id }}, $event.target.value)">
-                                                    @foreach ($relationships as $relationship)
-                                                        <flux:select.option value="{{ $relationship->id }}">
-                                                            {{ $relationship->name }}
-                                                        </flux:select.option>
-                                                    @endforeach
-                                                </flux:select>
-                                            @endif
-                                        </div>
-                                    @break
+                                            {{-- MEMBER_004: Relación con el jefe/a --}}
+                                            @case('MEMBER_004')
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    @if ($selectedMember->householdRelationship?->code === 'HEAD')
+                                                        <flux:input label="{{ $question->label }}" value="Jefe/a de hogar"
+                                                            readonly />
+                                                    @else
+                                                        <flux:select label="{{ $question->label }}" placeholder="Seleccione"
+                                                            wire:model="memberForm.relationship_id"
+                                                            wire:change="saveMemberRelationship({{ $selectedMember->id }}, $event.target.value)">
+                                                            @foreach ($relationships as $relationship)
+                                                                <flux:select.option value="{{ $relationship->id }}">
+                                                                    {{ $relationship->name }}
+                                                                </flux:select.option>
+                                                            @endforeach
+                                                        </flux:select>
+                                                    @endif
+                                                </div>
+                                            @break
 
-                                    {{-- MEMBER_005: DNI --}}
-                                    @case('MEMBER_005')
-                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                            <flux:input label="{{ $question->label }}" placeholder="Ingrese el número de DNI"
-                                                wire:model.blur="memberForm.dni"
-                                                wire:blur="saveMemberDni({{ $selectedMember->id }}, $event.target.value)" />
-                                        </div>
-                                    @break
-                                @endswitch
-                            @endif
-
-                            @continue
-                        @elseif ($currentSection?->code === 'MEMBER' && in_array($question->code, ['MEMBER_006', 'MEMBER_007'], true))
-                            @if ($selectedMember)
-                                @php
-                                    $dniPhoto =
-                                        $question->code === 'MEMBER_006'
-                                            ? $this->getDniFrontPhoto($selectedMember)
-                                            : $this->getDniBackPhoto($selectedMember);
-
-                                    $photoProperty =
-                                        $question->code === 'MEMBER_006' ? 'dniFrontPhoto' : 'dniBackPhoto';
-
-                                @endphp
-
-                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
-                                    <div class="mb-3">
-                                        <flux:heading size="sm">
-                                            {{ $question->label }}
-                                        </flux:heading>
-                                    </div>
-
-                                    @if ($dniPhoto)
-                                        <div class="mb-4">
-                                            <img src="{{ Storage::disk($dniPhoto->disk)->url($dniPhoto->path) }}"
-                                                alt="{{ $question->label }}"
-                                                class="max-h-64 w-auto rounded-lg border border-zinc-200" />
-                                        </div>
-
-                                        <p class="mb-3 text-sm text-zinc-600">
-                                            Fotografía registrada. Puede seleccionar una nueva para reemplazarla.
-                                        </p>
+                                            {{-- MEMBER_005: DNI --}}
+                                            @case('MEMBER_005')
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    <flux:input label="{{ $question->label }}"
+                                                        placeholder="Ingrese el número de DNI" wire:model.blur="memberForm.dni"
+                                                        wire:blur="saveMemberDni({{ $selectedMember->id }}, $event.target.value)" />
+                                                </div>
+                                            @break
+                                        @endswitch
                                     @endif
+                                @elseif ($currentSection?->code === 'MEMBER' && in_array($question->code, ['MEMBER_006', 'MEMBER_007'], true))
+                                    @if ($selectedMember)
+                                        @php
+                                            $dniPhoto =
+                                                $question->code === 'MEMBER_006'
+                                                    ? $this->getDniFrontPhoto($selectedMember)
+                                                    : $this->getDniBackPhoto($selectedMember);
 
-                                    <input type="file" wire:model="{{ $photoProperty }}"
-                                        accept="image/jpeg,image/png"
-                                        class="block w-full text-sm text-zinc-600
+                                            $photoProperty =
+                                                $question->code === 'MEMBER_006' ? 'dniFrontPhoto' : 'dniBackPhoto';
+
+                                        @endphp
+
+                                        <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                            <div class="mb-3">
+                                                <flux:heading size="sm">
+                                                    {{ $question->label }}
+                                                </flux:heading>
+                                            </div>
+
+                                            @if ($dniPhoto)
+                                                <div class="mb-4">
+                                                    <img src="{{ Storage::disk($dniPhoto->disk)->url($dniPhoto->path) }}"
+                                                        alt="{{ $question->label }}"
+                                                        class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                                </div>
+
+                                                <p class="mb-3 text-sm text-zinc-600">
+                                                    Fotografía registrada. Puede seleccionar una nueva para
+                                                    reemplazarla.
+                                                </p>
+                                            @endif
+
+                                            <input type="file" wire:model="{{ $photoProperty }}"
+                                                accept="image/jpeg,image/png"
+                                                class="block w-full text-sm text-zinc-600
                                                file:mr-4 file:rounded-lg file:border-0
                                                file:bg-zinc-100 file:px-4 file:py-2
                                                file:text-sm file:font-medium" />
 
-                                    <div wire:loading wire:target="{{ $photoProperty }}"
-                                        class="mt-2 text-sm text-zinc-500">
-                                        Subiendo fotografía...
+                                            <div wire:loading wire:target="{{ $photoProperty }}"
+                                                class="mt-2 text-sm text-zinc-500">
+                                                Subiendo fotografía...
+                                            </div>
+
+                                            @error($photoProperty)
+                                                <p class="mt-2 text-sm text-red-600">
+                                                    {{ $message }}
+                                                </p>
+                                            @enderror
+                                        </div>
+                                    @endif
+                                @elseif ($question->questionType->code === 'text')
+                                    @include('livewire.survey.questions.text', [
+                                        'question' => $question,
+                                        'response' => $response,
+                                        'answer' => $this->getAnswer($question),
+                                    ])
+                                @elseif ($question->questionType->code === 'single_choice')
+                                    @include('livewire.survey.questions.single-choice', [
+                                        'question' => $question,
+                                        'answer' => $this->getAnswer($question),
+                                    ])
+                                @elseif ($question->questionType->code === 'date')
+                                    @include('livewire.survey.questions.date', [
+                                        'question' => $question,
+                                        'response' => $response,
+                                    ])
+                                @elseif (in_array($question->questionType->code, ['number', 'decimal'], true))
+                                    @include('livewire.survey.questions.number', [
+                                        'question' => $question,
+                                        'response' => $response,
+                                        'answer' => $this->getAnswer($question),
+                                    ])
+                                @elseif ($question->questionType->code === 'boolean')
+                                    @include('livewire.survey.questions.boolean', [
+                                        'question' => $question,
+                                        'answer' => $this->getAnswer($question),
+                                    ])
+                                @else
+                                    <div class="rounded-lg border border-dashed p-4">
+                                        <flux:text>
+                                            Tipo de pregunta aún no implementado:
+                                            <strong>{{ $question->questionType->code }}</strong>
+                                        </flux:text>
+
+                                        <flux:text class="mt-1">
+                                            {{ $question->label }}
+                                        </flux:text>
                                     </div>
-
-                                    @error($photoProperty)
-                                        <p class="mt-2 text-sm text-red-600">
-                                            {{ $message }}
-                                        </p>
-                                    @enderror
-                                </div>
-                            @endif
-
-                            @continue
-                        @elseif ($question->questionType->code === 'text')
-                            @include('livewire.survey.questions.text', [
-                                'question' => $question,
-                                'response' => $response,
-                                'answer' => $this->getAnswer($question),
-                            ])
-                        @elseif ($question->questionType->code === 'single_choice')
-                            @include('livewire.survey.questions.single-choice', [
-                                'question' => $question,
-                                'answer' => $this->getAnswer($question),
-                            ])
-                        @elseif ($question->questionType->code === 'date')
-                            @include('livewire.survey.questions.date', [
-                                'question' => $question,
-                                'response' => $response,
-                            ])
-                        @elseif ($question->questionType->code === 'number')
-                            @include('livewire.survey.questions.number', [
-                                'question' => $question,
-                                'response' => $response,
-                                'answer' => $this->getAnswer($question),
-                            ])
-                        @elseif ($question->questionType->code === 'boolean')
-                            @include('livewire.survey.questions.boolean', [
-                                'question' => $question,
-                                'answer' => $this->getAnswer($question),
-                            ])
-                        @else
-                            <div class="rounded-lg border border-dashed p-4">
-                                <flux:text>
-                                    Tipo de pregunta aún no implementado:
-                                    <strong>{{ $question->questionType->code }}</strong>
-                                </flux:text>
-
-                                <flux:text class="mt-1">
-                                    {{ $question->label }}
-                                </flux:text>
+                                @endif
                             </div>
                         @endif
-
                         @empty
 
                             <flux:text>
@@ -399,6 +410,9 @@
 
                         <flux:select label="Relación con el jefe/a de hogar" placeholder="Seleccione una relación"
                             wire:model="newMemberRelationshipId">
+                            <flux:select.option value="">
+                                Seleccione una relación
+                            </flux:select.option>
                             @foreach ($relationships as $relationship)
                                 <flux:select.option value="{{ $relationship->id }}">
                                     {{ $relationship->name }}
