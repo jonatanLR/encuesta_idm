@@ -8,12 +8,6 @@
         @endif
     </label>
 
-    @if ($question->description)
-        <p class="text-sm text-zinc-500">
-            {{ $question->description }}
-        </p>
-    @endif
-
     <livewire:community-search :initial-community-id="$response->community_id" :initial-community-name="$response->community?->name" :key="'community-search-' . $response->id" />
 
 </div>

@@ -1,12 +1,10 @@
 
 
-<div>
+<div x-data="{ showConfirmation: false }"
+    x-on:community-selected.window="showConfirmation = true; setTimeout(() => showConfirmation = false, 3000)"
+    x-on:community-cleared.window="showConfirmation = false">
     {{-- The only way to do great work is to love what you do. - Steve Jobs --}}
     <div class="w-full max-w-xl">
-
-        <label for="community-search" class="block text-sm font-medium text-gray-700">
-            Seleccione el nombre de la comunidad
-        </label>
 
         <div class="relative mt-2">
 
@@ -53,7 +51,8 @@
         @endif
 
         @if ($selectedCommunityId !== null)
-            <div class="mt-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+            <div x-show="showConfirmation" x-transition
+                class="mt-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
 
                 <div class="text-sm text-green-700">
                     Comunidad seleccionada

@@ -3,7 +3,6 @@
 use App\Livewire\CommunitySearch;
 use App\Livewire\Survey\Form;
 use App\Livewire\Survey\Index;
-use App\Livewire\Survey\Start;
 use App\Livewire\SurveyManagement\Index as SurveyManagementIndex;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -23,7 +22,6 @@ Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Route::livewire('/encuestas', Index::class)->name('survey.index');
-    Route::livewire('/encuestas/iniciar', Start::class)->name('survey.start');
     Route::livewire('/encuestas/{response}', Form::class)->name('survey.form');
     Route::livewire('/administrar-encuestas', SurveyManagementIndex::class)->name('survey-management.index');
 
@@ -32,26 +30,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
-/* Route::get('/debug', function () {
-    return \App\Models\QuestionCondition::with([
-    'question',
-    'dependsOnQuestion',
-    'dependsOnOption',
-])->first();
-}); */
 
-/* Route::get('/debug', function () {
-    $user = User::create([
-    'name' => 'Usuario de Desarrollo',
-    'email' => 'dev@encuestaidm.test',
-    'password' => Hash::make('Dev12345!'),
-]);
-
-    return $user;
-}); */
-
-// Route::view('/community-test', 'community-search');
-// Route::livewire('/community-test',CommunitySearch::class);
 Route::view('/community-test', 'community-test');
 
 require __DIR__ . '/auth.php';

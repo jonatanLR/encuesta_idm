@@ -4,21 +4,22 @@ namespace App\Livewire\Survey;
 
 use App\Models\Answer;
 use App\Models\Community;
-use App\Models\Question;
-use App\Models\SurveyResponse;
-use App\Services\SurveyResponseService;
-use Illuminate\Database\Eloquent\Collection;
-use Livewire\Attributes\On;
-use Livewire\Component;
-use Livewire\WithFileUploads;
 use App\Models\Household;
 use App\Models\HouseholdMember;
 use App\Models\HouseholdRelationship;
-use App\Services\HouseholdMemberService;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Question;
+use App\Models\Section;
 use App\Models\SurveyFile;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use App\Models\SurveyResponse;
 use App\Services\ConditionEvaluator;
+use App\Services\HouseholdMemberService;
+use App\Services\SurveyResponseService;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
+use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class Form extends Component
 {
@@ -27,7 +28,9 @@ class Form extends Component
     public SurveyResponse $response;
 
     public int $currentSectionIndex = 0;
+
     public ?int $selectedMemberId = null;
+
     public bool $showAddMemberModal = false;
 
     public string $newMemberName = '';
@@ -39,7 +42,10 @@ class Form extends Component
     public array $memberForm = [];
 
     public $dniFrontPhoto;
+
     public $dniBackPhoto;
+
+    public array $imageFiles = [];
 
     #[On('community-selected')]
     public function communitySelected(
@@ -368,6 +374,99 @@ class Form extends Component
         $this->dniBackPhoto = null;
     }
 
+    public function updatedImageFiles($value, $questionId): void
+    {
+        if (! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->saveImage(
+            questionId: (int) $questionId,
+            file: $value,
+        );
+
+        $this->imageFiles[$questionId] = null;
+    }
+
+    public function saveImage(
+        int $questionId,
+        TemporaryUploadedFile $file
+    ): void {
+        $question = Question::query()
+            ->with(['section', 'questionType'])
+            ->findOrFail($questionId);
+
+        if ($question->questionType?->code !== 'image') {
+            abort(404);
+        }
+
+        $member = $this->getMemberContext($question);
+
+        if ($member !== null) {
+            $member = $this->getMemberForEditing($member->id);
+        }
+
+        $imageProperty = "imageFiles.{$questionId}";
+
+        $this->imageFiles[$questionId] = $file;
+        $this->validate([
+            $imageProperty => [
+                'image',
+                'mimes:jpg,jpeg,png',
+                'max:5120',
+            ],
+        ], [
+            "{$imageProperty}.image" => 'La fotografía debe ser una imagen.',
+            "{$imageProperty}.mimes" => 'La fotografía debe estar en formato JPG o PNG.',
+            "{$imageProperty}.max" => 'La fotografía no puede superar los 5 MB.',
+        ]);
+
+        $answer = Answer::firstOrNew([
+            'survey_response_id' => $this->response->id,
+            'question_id' => $question->id,
+            'household_member_id' => $member?->id,
+        ]);
+        $answer->save();
+
+        $existingFile = $answer->surveyFiles()->first();
+
+        if ($existingFile !== null) {
+            Storage::disk($existingFile->disk)
+                ->delete($existingFile->path);
+
+            $existingFile->delete();
+        }
+
+        $directory = $member === null
+            ? sprintf(
+                'surveys/%s/questions/%s',
+                $this->response->public_id,
+                $question->code,
+            )
+            : sprintf(
+                'surveys/%s/members/%s/questions/%s',
+                $this->response->public_id,
+                $member->public_id,
+                $question->code,
+            );
+
+        $path = $file->store($directory, 'public');
+
+        $answer->surveyFiles()->create([
+            'survey_response_id' => $this->response->id,
+            'answer_id' => $answer->id,
+            'household_member_id' => $member?->id,
+            'file_type' => 'image',
+            'disk' => 'public',
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        $this->response->load('answers');
+    }
+
     protected function saveDniPhoto(
         TemporaryUploadedFile $file,
         string $fileType
@@ -586,11 +685,17 @@ class Form extends Component
             ->first();
     }
 
+    protected function getImageFile(Question $question): ?SurveyFile
+    {
+        return $this->getAnswer($question)?->surveyFiles()->first();
+    }
+
     public function render()
     {
         $sections = $this->getSections();
 
         $currentSection = $sections->get($this->currentSectionIndex);
+        $localSubsection = $this->getLocalSubsection($currentSection);
 
         $members = $this->response->household?->householdMembers ?? collect();
 
@@ -604,9 +709,38 @@ class Form extends Component
             'sections' => $sections,
             'currentSection' => $currentSection,
             'questions' => $currentSection?->questions ?? collect(),
+            'localSubsection' => $localSubsection,
+            'localQuestions' => $localSubsection?->questions ?? collect(),
             'members' => $members,
             'relationships' => $relationships,
         ]);
+    }
+
+    private function getLocalSubsection(?Section $currentSection): ?Section
+    {
+        if ($currentSection?->code !== 'HOUSING') {
+            return null;
+        }
+
+        return $this->response->surveyVersion
+            ->sections()
+            ->where('parent_id', $currentSection->id)
+            ->where('code', 'LOCAL')
+            ->where('active', true)
+            ->with([
+                'questions' => function ($query) {
+                    $query->where('active', true)
+                        ->orderBy('sort_order')
+                        ->with([
+                            'questionType',
+                            'options' => function ($query) {
+                                $query->where('active', true)
+                                    ->orderBy('sort_order');
+                            },
+                        ]);
+                },
+            ])
+            ->first();
     }
 
     public function saveSingleChoice(
@@ -686,7 +820,7 @@ class Form extends Component
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
 
-        if ($question->questionType->code !== 'text') {
+        if (! in_array($question->questionType->code, ['text', 'textarea'], true)) {
             abort(404);
         }
 
@@ -698,6 +832,22 @@ class Form extends Component
         );
 
         $this->response->load('answers');
+    }
+
+    public function saveLocation(float $latitude, float $longitude): void
+    {
+        if ($latitude < -90 || $latitude > 90) {
+            abort(422, 'La latitud no es válida.');
+        }
+
+        if ($longitude < -180 || $longitude > 180) {
+            abort(422, 'La longitud no es válida.');
+        }
+
+        $this->response->latitude = round($latitude, 7);
+        $this->response->longitude = round($longitude, 7);
+        $this->response->location_source = 'map';
+        $this->response->save();
     }
 
     public function saveNumber(
@@ -746,7 +896,7 @@ class Form extends Component
         $this->response->load('answers');
     }
 
-    //HouseHold protected
+    // HouseHold protected
     protected function ensureHousehold(): Household
     {
         $household = $this->response->household()->first();

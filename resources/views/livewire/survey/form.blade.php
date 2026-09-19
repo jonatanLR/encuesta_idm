@@ -304,6 +304,90 @@
                                             @enderror
                                         </div>
                                     @endif
+                                @elseif ($question->questionType->code === 'image')
+                                    @php
+                                        $imageFile = $this->getImageFile($question);
+                                        $imageProperty = 'imageFiles.' . $question->id;
+                                    @endphp
+
+                                    <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                        <div class="mb-3">
+                                            <label for="question-{{ $question->id }}" class="text-sm font-medium text-zinc-900">
+                                                {{ $question->label }}
+
+                                                @if ($question->required)
+                                                    <span class="text-red-600">*</span>
+                                                @endif
+                                            </label>
+
+                                            @if ($question->description)
+                                                <p class="mt-1 text-sm text-zinc-500">
+                                                    {{ $question->description }}
+                                                </p>
+                                            @endif
+                                        </div>
+
+                                        @if ($imageFile)
+                                            <div class="mb-4">
+                                                <img src="{{ Storage::disk($imageFile->disk)->url($imageFile->path) }}"
+                                                    alt="{{ $question->label }}"
+                                                    class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                            </div>
+
+                                            <p class="mb-3 text-sm text-zinc-600">
+                                                Imagen registrada. Puede seleccionar una nueva para reemplazarla.
+                                            </p>
+                                        @endif
+
+                                        <input id="question-{{ $question->id }}" type="file"
+                                            wire:model="{{ $imageProperty }}" accept="image/jpeg,image/png"
+                                            class="block w-full text-sm text-zinc-600
+                                           file:mr-4 file:rounded-lg file:border-0
+                                           file:bg-zinc-100 file:px-4 file:py-2
+                                           file:text-sm file:font-medium" />
+
+                                        <div wire:loading wire:target="{{ $imageProperty }}"
+                                            class="mt-2 text-sm text-zinc-500">
+                                            Subiendo imagen...
+                                        </div>
+
+                                        @error($imageProperty)
+                                            <p class="mt-2 text-sm text-red-600">
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
+                                    </div>
+                                @elseif ($question->questionType->code === 'textarea')
+                                    <div class="space-y-2">
+                                        <div>
+                                            <label for="question-{{ $question->id }}"
+                                                class="text-sm font-medium text-zinc-900">
+                                                {{ $question->label }}
+
+                                                @if ($question->required)
+                                                    <span class="text-red-600">*</span>
+                                                @endif
+                                            </label>
+
+                                            @if ($question->description)
+                                                <p class="mt-1 text-sm text-zinc-500">
+                                                    {{ $question->description }}
+                                                </p>
+                                            @endif
+                                        </div>
+
+                                        <textarea id="question-{{ $question->id }}" rows="4"
+                                            wire:change="saveText({{ $question->id }}, $event.target.value)"
+                                            class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm
+                                                   shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            placeholder="Ingrese sus comentarios">{{ $this->getAnswer($question)?->text_value }}</textarea>
+
+                                        @error('question.' . $question->id)
+                                            <p class="text-sm text-red-600">
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
+                                    </div>
                                 @elseif ($question->questionType->code === 'text')
                                     @include('livewire.survey.questions.text', [
                                         'question' => $question,
@@ -360,6 +444,144 @@
                             <p class="mt-1 text-sm text-amber-700">
                                 Presione "Capturar información" para comenzar.
                             </p>
+                        </div>
+                    @endif
+
+                    @if ($currentSection?->code === 'HOUSING' && $localSubsection)
+                        <div class="border-t border-zinc-200 pt-6">
+                            <div>
+                                <flux:heading size="lg">
+                                    {{ $localSubsection->name }}
+                                </flux:heading>
+
+                                @if ($localSubsection->description)
+                                    <flux:text class="mt-1">
+                                        {{ $localSubsection->description }}
+                                    </flux:text>
+                                @endif
+                            </div>
+
+                            <div class="mt-6 space-y-6">
+                                @forelse ($localQuestions as $question)
+                                    @if ($this->shouldShowQuestion($question))
+                                        <div wire:key="question-{{ $response->id }}-local-{{ $question->id }}">
+                                            @if ($question->questionType->code === 'text')
+                                                @include('livewire.survey.questions.text', [
+                                                    'question' => $question,
+                                                    'response' => $response,
+                                                    'answer' => $this->getAnswer($question),
+                                                ])
+                                            @elseif ($question->questionType->code === 'single_choice')
+                                                @include('livewire.survey.questions.single-choice', [
+                                                    'question' => $question,
+                                                    'answer' => $this->getAnswer($question),
+                                                ])
+                                            @elseif ($question->questionType->code === 'image')
+                                                @php
+                                                    $imageFile = $this->getImageFile($question);
+                                                    $imageProperty = 'imageFiles.' . $question->id;
+                                                @endphp
+
+                                                <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                                                    <div class="mb-3">
+                                                        <label for="question-{{ $question->id }}"
+                                                            class="text-sm font-medium text-zinc-900">
+                                                            {{ $question->label }}
+
+                                                            @if ($question->required)
+                                                                <span class="text-red-600">*</span>
+                                                            @endif
+                                                        </label>
+
+                                                        @if ($question->description)
+                                                            <p class="mt-1 text-sm text-zinc-500">
+                                                                {{ $question->description }}
+                                                            </p>
+                                                        @endif
+                                                    </div>
+
+                                                    @if ($imageFile)
+                                                        <div class="mb-4">
+                                                            <img src="{{ Storage::disk($imageFile->disk)->url($imageFile->path) }}"
+                                                                alt="{{ $question->label }}"
+                                                                class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                                        </div>
+
+                                                        <p class="mb-3 text-sm text-zinc-600">
+                                                            Imagen registrada. Puede seleccionar una nueva para reemplazarla.
+                                                        </p>
+                                                    @endif
+
+                                                    <input id="question-{{ $question->id }}" type="file"
+                                                        wire:model="{{ $imageProperty }}"
+                                                        accept="image/jpeg,image/png"
+                                                        class="block w-full text-sm text-zinc-600
+                                                       file:mr-4 file:rounded-lg file:border-0
+                                                       file:bg-zinc-100 file:px-4 file:py-2
+                                                       file:text-sm file:font-medium" />
+
+                                                    <div wire:loading wire:target="{{ $imageProperty }}"
+                                                        class="mt-2 text-sm text-zinc-500">
+                                                        Subiendo imagen...
+                                                    </div>
+
+                                                    @error($imageProperty)
+                                                        <p class="mt-2 text-sm text-red-600">
+                                                            {{ $message }}
+                                                        </p>
+                                                    @enderror
+                                                </div>
+                                            @elseif (in_array($question->questionType->code, ['number', 'decimal'], true))
+                                                @include('livewire.survey.questions.number', [
+                                                    'question' => $question,
+                                                    'response' => $response,
+                                                    'answer' => $this->getAnswer($question),
+                                                ])
+                                            @elseif ($question->questionType->code === 'boolean')
+                                                @include('livewire.survey.questions.boolean', [
+                                                    'question' => $question,
+                                                    'answer' => $this->getAnswer($question),
+                                                ])
+                                            @else
+                                                <div class="rounded-lg border border-dashed p-4">
+                                                    <flux:text>
+                                                        Tipo de pregunta aún no implementado:
+                                                        <strong>{{ $question->questionType->code }}</strong>
+                                                    </flux:text>
+
+                                                    <flux:text class="mt-1">
+                                                        {{ $question->label }}
+                                                    </flux:text>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
+                                @empty
+                                    <flux:text>
+                                        Esta subsección no tiene preguntas configuradas.
+                                    </flux:text>
+                                @endforelse
+                            </div>
+                        </div>
+                    @endif
+
+                    @if ($currentSection?->code === 'CLOSURE')
+                        <div class="mt-8 border-t border-zinc-200 pt-6">
+                            <div class="mb-3">
+                                <flux:heading size="sm">
+                                    Ubicación de la vivienda
+                                </flux:heading>
+                            </div>
+
+                            <div wire:ignore data-closure-map
+                                data-latitude="{{ $response->latitude }}"
+                                data-longitude="{{ $response->longitude }}"
+                                class="h-96 w-full overflow-hidden rounded-xl border border-zinc-200"></div>
+
+                            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                                <flux:input label="Latitud" value="{{ $response->latitude }}" readonly />
+                                <flux:input label="Longitud" value="{{ $response->longitude }}" readonly />
+                            </div>
                         </div>
                     @endif
 
