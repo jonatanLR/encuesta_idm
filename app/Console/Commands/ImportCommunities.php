@@ -30,7 +30,7 @@ class ImportCommunities extends Command
         }
 
         $path = database_path(
-            'data/distrito_central_communities.csv'
+            'data/distrito_central_comunidades.csv'
         );
 
         if (!file_exists($path)) {
@@ -50,7 +50,7 @@ class ImportCommunities extends Command
 
             return self::FAILURE;
         }
-        //
+
         $headers = fgetcsv($handle);
 
         if ($headers === false) {
@@ -63,7 +63,11 @@ class ImportCommunities extends Command
 
         $headers = array_map(
             fn($header) => trim(
-                preg_replace('/^\xEF\xBB\xBF/', '', $header)
+                preg_replace(
+                    '/^\xEF\xBB\xBF/',
+                    '',
+                    $header
+                )
             ),
             $headers
         );
@@ -72,7 +76,7 @@ class ImportCommunities extends Command
             fn($header) => strtolower(trim($header)),
             $headers
         );
-        //
+
         $requiredHeaders = [
             'source_code',
             'name',
@@ -91,7 +95,7 @@ class ImportCommunities extends Command
         }
 
         $imported = 0;
-        $updated = 0;
+        $existing = 0;
         $skipped = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
@@ -100,7 +104,7 @@ class ImportCommunities extends Command
 
                 $this->warn(
                     'Fila omitida por cantidad incorrecta de columnas: '
-                        . ($imported + $updated + $skipped)
+                        . ($imported + $existing + $skipped)
                 );
 
                 continue;
@@ -116,7 +120,7 @@ class ImportCommunities extends Command
                 continue;
             }
 
-            $community = Community::updateOrCreate(
+            $community = Community::firstOrCreate(
                 [
                     'municipality_id' => $municipality->id,
                     'name' => $name,
@@ -141,7 +145,7 @@ class ImportCommunities extends Command
             if ($community->wasRecentlyCreated) {
                 $imported++;
             } else {
-                $updated++;
+                $existing++;
             }
         }
 
@@ -152,7 +156,7 @@ class ImportCommunities extends Command
         );
 
         $this->info(
-            "Comunidades actualizadas: {$updated}"
+            "Comunidades existentes: {$existing}"
         );
 
         $this->info(
