@@ -45,6 +45,8 @@ class Form extends Component
     public array $completionErrors = [];
     public array $completionQuestionLabels = [];
 
+    public bool $surveyCompletedMessage = false;
+
     public $dniFrontPhoto;
 
     public $dniBackPhoto;
@@ -102,11 +104,15 @@ class Form extends Component
     ): void {
         $this->completionErrors = [];
         $this->completionQuestionLabels = [];
+        $this->surveyCompletedMessage = false;
 
         try {
             $this->response = $surveyResponseService->complete(
                 $this->response
             );
+
+            $this->surveyCompletedMessage = true;
+            $this->dispatch('survey-completed');
 
             $this->response->load([
                 'questionnaire',

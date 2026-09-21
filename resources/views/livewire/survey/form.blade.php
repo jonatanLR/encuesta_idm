@@ -1,4 +1,5 @@
-<div class="mx-auto w-full max-w-6xl space-y-6">
+<div class="mx-auto w-full max-w-6xl space-y-6"
+    x-on:survey-completed.window="$flux.modal('confirm-complete-survey').close()">
 
     {{-- Encabezado --}}
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -56,6 +57,18 @@
 
         </div>
     </flux:card>
+
+    @if ($surveyCompletedMessage)
+        <flux:callout variant="success" icon="check-circle">
+            <flux:heading size="sm">
+                Encuesta completada correctamente
+            </flux:heading>
+
+            <flux:text class="mt-1">
+                La encuesta {{ $response->reference }} ha sido finalizada.
+            </flux:text>
+        </flux:callout>
+    @endif
 
     @if ($completionErrors !== [])
         <flux:callout variant="danger" icon="exclamation-triangle">
