@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Survey;
 
+use App\Exceptions\SurveyValidationException;
 use App\Models\Answer;
 use App\Models\Community;
 use App\Models\Household;
@@ -40,6 +41,9 @@ class Form extends Component
     public ?string $memberAddedMessage = null;
 
     public array $memberForm = [];
+
+    public array $completionErrors = [];
+    public array $completionQuestionLabels = [];
 
     public $dniFrontPhoto;
 
@@ -91,6 +95,65 @@ class Form extends Component
         if ($this->selectedMemberId !== null) {
             $this->loadMemberForm($this->selectedMemberId);
         }
+    }
+
+    public function completeSurvey(
+        SurveyResponseService $surveyResponseService
+    ): void {
+        $this->completionErrors = [];
+        $this->completionQuestionLabels = [];
+
+        try {
+            $this->response = $surveyResponseService->complete(
+                $this->response
+            );
+
+            $this->response->load([
+                'questionnaire',
+                'surveyVersion',
+                'community',
+                'household.householdMembers' => function ($query): void {
+                    $query->whereNull('deleted_at')
+                        ->orderBy('id');
+                },
+                'household.householdMembers.surveyFiles',
+            ]);
+        } catch (SurveyValidationException $exception) {
+            $this->completionErrors = $exception->errors();
+            $this->completionQuestionLabels = $this->getCompletionQuestionLabels();
+        }
+    }
+
+    private function getCompletionQuestionLabels(): array
+    {
+        $codes = [];
+
+        foreach ($this->completionErrors as $key => $error) {
+            if ($key === 'members') {
+                foreach ($error as $memberErrors) {
+                    foreach ($memberErrors as $questionCode => $message) {
+                        $codes[] = $questionCode;
+                    }
+                }
+
+                continue;
+            }
+
+            if (is_string($error)) {
+                $codes[] = $key;
+            }
+        }
+
+        if ($codes === []) {
+            return [];
+        }
+
+        return Question::query()
+            ->whereIn('code', array_unique($codes))
+            ->get(['code', 'label'])
+            ->keyBy('code')
+            ->map(fn(Question $question): string => $question->label)
+            ->all();
     }
 
     public function nextSection(): void

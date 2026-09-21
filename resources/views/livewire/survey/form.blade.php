@@ -1,14 +1,22 @@
 <div class="mx-auto w-full max-w-6xl space-y-6">
 
     {{-- Encabezado --}}
-    <div>
-        <flux:heading size="xl">
-            Encuesta de Situación Social
-        </flux:heading>
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+            <flux:heading size="xl">
+                Encuesta de Situación Social
+            </flux:heading>
 
-        <flux:text class="mt-2">
-            Captura de información de la encuesta
-        </flux:text>
+            <flux:text class="mt-2">
+                Captura de información de la encuesta
+            </flux:text>
+        </div>
+
+        <flux:modal.trigger name="confirm-complete-survey">
+            <flux:button variant="primary">
+                Finalizar encuesta
+            </flux:button>
+        </flux:modal.trigger>
     </div>
 
 
@@ -48,6 +56,34 @@
 
         </div>
     </flux:card>
+
+    @if ($completionErrors !== [])
+        <flux:callout variant="danger" icon="exclamation-triangle">
+            <flux:heading size="sm">
+                No se puede finalizar la encuesta
+            </flux:heading>
+
+            <flux:text class="mt-1">
+                Hay preguntas obligatorias que aún no han sido respondidas.
+            </flux:text>
+
+            <div class="mt-3 space-y-2">
+                @foreach ($completionErrors as $key => $error)
+                    @if (is_string($error))
+                        <div>
+                            <flux:text class="font-medium">
+                                {{ $key }}
+                            </flux:text>
+
+                            <flux:text class="ml-2">
+                                — {{ $completionQuestionLabels[$key] ?? 'Pregunta sin descripción' }}
+                            </flux:text>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        </flux:callout>
+    @endif
 
 
     {{-- Navegación compacta de secciones --}}
@@ -312,7 +348,8 @@
 
                                     <div class="rounded-xl border border-zinc-200 bg-white p-4">
                                         <div class="mb-3">
-                                            <label for="question-{{ $question->id }}" class="text-sm font-medium text-zinc-900">
+                                            <label for="question-{{ $question->id }}"
+                                                class="text-sm font-medium text-zinc-900">
                                                 {{ $question->label }}
 
                                                 @if ($question->required)
@@ -508,13 +545,13 @@
                                                         </div>
 
                                                         <p class="mb-3 text-sm text-zinc-600">
-                                                            Imagen registrada. Puede seleccionar una nueva para reemplazarla.
+                                                            Imagen registrada. Puede seleccionar una nueva para
+                                                            reemplazarla.
                                                         </p>
                                                     @endif
 
                                                     <input id="question-{{ $question->id }}" type="file"
-                                                        wire:model="{{ $imageProperty }}"
-                                                        accept="image/jpeg,image/png"
+                                                        wire:model="{{ $imageProperty }}" accept="image/jpeg,image/png"
                                                         class="block w-full text-sm text-zinc-600
                                                        file:mr-4 file:rounded-lg file:border-0
                                                        file:bg-zinc-100 file:px-4 file:py-2
@@ -573,8 +610,7 @@
                                 </flux:heading>
                             </div>
 
-                            <div wire:ignore data-closure-map
-                                data-latitude="{{ $response->latitude }}"
+                            <div wire:ignore data-closure-map data-latitude="{{ $response->latitude }}"
                                 data-longitude="{{ $response->longitude }}"
                                 class="h-96 w-full overflow-hidden rounded-xl border border-zinc-200"></div>
 
@@ -655,5 +691,40 @@
                 </form>
             </flux:modal>
         @endif
+
+
+        <flux:modal name="confirm-complete-survey" class="md:w-96">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">
+                        ¿Finalizar encuesta?
+                    </flux:heading>
+
+                    <flux:text class="mt-2">
+                        Al finalizar la encuesta se validará toda la información registrada.
+                        Si existen preguntas obligatorias pendientes, la encuesta no podrá finalizarse.
+                    </flux:text>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button variant="ghost">
+                            Cancelar
+                        </flux:button>
+                    </flux:modal.close>
+
+                    <flux:button variant="primary" wire:click="completeSurvey" wire:loading.attr="disabled"
+                        wire:target="completeSurvey">
+                        <span wire:loading.remove wire:target="completeSurvey">
+                            Finalizar encuesta
+                        </span>
+
+                        <span wire:loading wire:target="completeSurvey">
+                            Validando...
+                        </span>
+                    </flux:button>
+                </div>
+            </div>
+        </flux:modal>
 
     </div>
