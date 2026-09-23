@@ -58,6 +58,7 @@
         </div>
     </flux:card>
 
+    {{-- tarjeta de información al finalizar la encuesta --}}
     @if ($surveyCompletedMessage)
         <flux:callout variant="success" icon="check-circle">
             <flux:heading size="sm">
@@ -70,6 +71,7 @@
         </flux:callout>
     @endif
 
+    {{-- Area de errores de finalización de encuesta --}}
     @if ($completionErrors !== [])
         <flux:callout variant="danger" icon="exclamation-triangle">
             <flux:heading size="sm">
@@ -662,6 +664,7 @@
 
         </div>
 
+        {{-- modal para agregar un nuevo miembro --}}
         @if ($showAddMemberModal)
             <flux:modal name="add-member" wire:model="showAddMemberModal" class="md:w-[32rem]">
                 <form wire:submit="addMember" class="space-y-6">
@@ -705,7 +708,7 @@
             </flux:modal>
         @endif
 
-
+        {{-- modal para confirmar la finalización de la encuesta --}}
         <flux:modal name="confirm-complete-survey" class="md:w-96">
             <div class="space-y-6">
                 <div>
