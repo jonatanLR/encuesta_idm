@@ -24,6 +24,8 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('/administrar-encuestas', SurveyManagementIndex::class)->name('survey-management.index');
     Route::livewire('/administrar-encuestas/comunidades', \App\Livewire\SurveyManagement\Communities\Index::class)
         ->name('survey-management.communities');
+    Route::livewire('/administrar-encuestas/{questionnaire}/versiones', \App\Livewire\SurveyManagement\Versions\Index::class)
+        ->name('survey-management.versions');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');

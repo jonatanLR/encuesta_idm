@@ -1,30 +1,29 @@
 <div class="mx-auto w-full max-w-6xl">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <flux:heading size="xl">Administrar encuestas</flux:heading>
+            <flux:heading size="xl">
+                Versiones
+            </flux:heading>
 
             <flux:text class="mt-2">
-                Gestiona las encuestas y sus versiones.
+                {{ $questionnaire->name }}
             </flux:text>
         </div>
 
-        <flux:button variant="primary" disabled>
-            + Crear encuesta
+        <flux:button variant="ghost" :href="route('survey-management.index')" wire:navigate>
+            Volver a encuestas
         </flux:button>
     </div>
 
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle">
-            {{ session('success') }}
-        </flux:callout>
-    @endif
-
     <flux:card class="mt-6 overflow-hidden p-0">
-        @if ($questionnaires->isEmpty())
+        @if ($versions->isEmpty())
             <div class="px-6 py-10 text-center">
-                <flux:heading size="lg">No hay encuestas registradas</flux:heading>
+                <flux:heading size="lg">
+                    No hay versiones registradas
+                </flux:heading>
+
                 <flux:text class="mt-2">
-                    Crea la primera encuesta para comenzar a administrarla.
+                    Este cuestionario todavía no tiene versiones.
                 </flux:text>
             </div>
         @else
@@ -34,34 +33,36 @@
                         <tr>
                             <th scope="col"
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                Encuesta
+                                Versión
                             </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                Descripción
-                            </th>
+
                             <th scope="col"
                                 class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Estado
                             </th>
+
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                Publicación
+                            </th>
+
                             <th scope="col"
                                 class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Acciones
                             </th>
                         </tr>
                     </thead>
+
                     <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
-                        @foreach ($questionnaires as $questionnaire)
+                        @foreach ($versions as $version)
                             <tr>
                                 <td
                                     class="whitespace-nowrap px-6 py-4 text-sm font-medium text-zinc-900 dark:text-white">
-                                    {{ $questionnaire->name }}
+                                    {{ $version->version }}
                                 </td>
-                                <td class="max-w-md px-6 py-4 text-sm text-zinc-600 dark:text-zinc-300">
-                                    {{ $questionnaire->description ?? 'Sin descripción' }}
-                                </td>
+
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    @if ($questionnaire->active)
+                                    @if ($version->active)
                                         <span
                                             class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                                             Activa
@@ -73,15 +74,19 @@
                                         </span>
                                     @endif
                                 </td>
+
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-zinc-600 dark:text-zinc-300">
+                                    @if ($version->published_at)
+                                        {{ $version->published_at->format('d/m/Y H:i') }}
+                                    @else
+                                        No publicada
+                                    @endif
+                                </td>
+
                                 <td class="whitespace-nowrap px-6 py-4 text-right">
                                     <div class="flex justify-end gap-2">
-                                        <flux:button variant="ghost" size="sm"
-                                            wire:click="openEditModal({{ $questionnaire->id }})">
+                                        <flux:button variant="ghost" size="sm" disabled>
                                             Editar
-                                        </flux:button>
-                                        <flux:button variant="ghost" size="sm"
-                                            :href="route('survey-management.versions', $questionnaire)" wire:navigate>
-                                            Versiones
                                         </flux:button>
                                     </div>
                                 </td>
@@ -92,36 +97,4 @@
             </div>
         @endif
     </flux:card>
-
-    {{-- modal para editar cuestionario --}}
-    <flux:modal wire:model="showEditModal" name="edit-questionnaire">
-        <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">
-                    Editar cuestionario
-                </flux:heading>
-
-                <flux:text class="mt-2">
-                    Actualiza la información general del cuestionario.
-                </flux:text>
-            </div>
-
-            <flux:input wire:model="name" label="Nombre" placeholder="Nombre del cuestionario" required />
-
-            <flux:textarea wire:model="description" label="Descripción" placeholder="Descripción del cuestionario"
-                rows="4" />
-
-            <flux:switch wire:model="active" label="Cuestionario activo" />
-
-            <div class="flex justify-end gap-2">
-                <flux:button variant="ghost" wire:click="$set('showEditModal', false)">
-                    Cancelar
-                </flux:button>
-
-                <flux:button variant="primary" wire:click="updateQuestionnaire">
-                    Guardar cambios
-                </flux:button>
-            </div>
-        </div>
-    </flux:modal>
 </div>
