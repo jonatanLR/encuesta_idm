@@ -17,7 +17,7 @@
         {{-- boton para abrir el modal de crear una nueva comunidad --}}
         <flux:button variant="primary" wire:click="openCreateModal">
             + Nueva comunidad
-        </flux:button>
+        </flux:button>>
     </div>
 
     <div class="flex items-center gap-4">
