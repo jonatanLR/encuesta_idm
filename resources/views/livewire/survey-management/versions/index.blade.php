@@ -10,10 +10,20 @@
             </flux:text>
         </div>
 
+        <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
+            Nueva versión
+        </flux:button>
+
         <flux:button variant="ghost" :href="route('survey-management.index')" wire:navigate>
             Volver a encuestas
         </flux:button>
     </div>
+
+    @if (session()->has('success'))
+        <flux:callout variant="success" icon="check-circle" class="mb-4">
+            {{ session('success') }}
+        </flux:callout>
+    @endif
 
     <flux:card class="mt-6 overflow-hidden p-0">
         @if ($versions->isEmpty())
@@ -88,6 +98,13 @@
                                         <flux:button variant="ghost" size="sm" disabled>
                                             Editar
                                         </flux:button>
+                                        <flux:button variant="ghost" size="sm"
+                                            :href="route('survey-management.sections', [
+                                                    'questionnaire' => $questionnaire->id,
+                                                    'version' => $version->id,
+                                                ])">
+                                            Secciones
+                                        </flux:button>
                                     </div>
                                 </td>
                             </tr>
@@ -97,4 +114,48 @@
             </div>
         @endif
     </flux:card>
+
+    <flux:modal name="create-survey-version" wire:model="showCreateModal" class="md:w-[32rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">
+                    Nueva versión
+                </flux:heading>
+
+                <flux:text class="mt-2">
+                    Se creará una versión de prueba independiente de la versión actual.
+                </flux:text>
+            </div>
+
+            <flux:field>
+                <flux:label>Versión</flux:label>
+
+                <flux:input wire:model="version" placeholder="Ej. 1.1" />
+
+                <flux:error name="version" />
+            </flux:field>
+
+            <flux:callout variant="info" icon="information-circle">
+                Esta primera versión de prueba clonará las secciones y preguntas
+                representativas definidas para las pruebas de administración.
+            </flux:callout>
+
+            <div class="flex justify-end gap-2">
+                <flux:button type="button" variant="ghost" wire:click="$set('showCreateModal', false)">
+                    Cancelar
+                </flux:button>
+
+                <flux:button type="button" variant="primary" wire:click="createTestVersion"
+                    wire:loading.attr="disabled">
+                    <span wire:loading.remove>
+                        Crear versión
+                    </span>
+
+                    <span wire:loading>
+                        Creando...
+                    </span>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

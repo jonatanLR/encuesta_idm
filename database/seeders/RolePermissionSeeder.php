@@ -34,6 +34,10 @@ class RolePermissionSeeder extends Seeder
             'community.create' => 'Crear comunidades',
             'community.update' => 'Editar comunidades',
             'community.activate' => 'Activar o desactivar comunidades',
+            'section.view' => 'Consultar secciones',
+            'section.create' => 'Crear secciones',
+            'section.update' => 'Editar secciones',
+            'section.activate' => 'Activar o desactivar secciones',
         ];
 
         foreach ($permissions as $slug => $name) {
@@ -52,6 +56,10 @@ class RolePermissionSeeder extends Seeder
                 'community.create',
                 'community.update',
                 'community.activate',
+                'section.view',
+                'section.create',
+                'section.update',
+                'section.activate',
             ])->pluck('id')
         );
         Role::where('slug', 'field-user')->firstOrFail()->permissions()->sync(
