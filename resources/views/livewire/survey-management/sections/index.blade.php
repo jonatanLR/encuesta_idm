@@ -11,7 +11,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <flux:button variant="primary" color="zinc" size="sm"
+            <flux:button variant="ghost" color="zinc" size="sm"
                 :href="route('survey-management.versions', $questionnaire)">
                 ← Volver
             </flux:button>
@@ -92,21 +92,21 @@
 
                             <td class="px-4 py-3">
                                 <div class="flex justify-end gap-2">
-                                    <flux:button variant="primary" color="blue" size="sm"
+                                    <flux:button variant="ghost" color="blue" size="sm"
                                         wire:click="openEditModal({{ $section->id }})">
                                         Editar
                                     </flux:button>
 
-                                    <flux:button variant="ghost" size="sm"
+                                    <flux:button variant="ghost" color="purple" size="sm"
                                         :href="route('survey-management.questions', [
-                                                'questionnaire' => $questionnaire->id,
-                                                'version' => $version->id,
-                                                'section' => $section->id,
-                                            ])">
+                                                                    'questionnaire' => $questionnaire->id,
+                                                                    'version' => $version->id,
+                                                                    'section' => $section->id,
+                                                                ])">
                                         Preguntas
                                     </flux:button>
 
-                                    <flux:button variant="primary" :color="$section->active ? 'amber' : 'green'"
+                                    <flux:button variant="ghost" :color="$section->active ? 'amber' : 'green'"
                                         size="sm" wire:click="toggleActive({{ $section->id }})">
                                         {{ $section->active ? 'Desactivar' : 'Activar' }}
                                     </flux:button>

@@ -12,17 +12,16 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost"
+            <flux:button variant="outline" color="zinc"
                 :href="route('survey-management.sections', [
-                                    'questionnaire' => $questionnaire->id,
-                                    'version' => $version->id,
-                                ])">
-                Volver a secciones
-            </flux:button>
+                            'questionnaire' => $questionnaire->id,
+                            'version' => $version->id,
+                        ])">
+                <- Volver a secciones </flux:button>
 
-            <flux:button variant="primary" wire:click="openCreateModal">
-                + Nueva pregunta
-            </flux:button>
+                    <flux:button variant="primary" wire:click="openCreateModal">
+                        + Nueva pregunta
+                    </flux:button>
         </div>
     </div>
 
@@ -61,7 +60,7 @@
                             Estado
                         </th>
 
-                        <th class="px-4 py-3 text-right font-medium">
+                        <th class="px-4 py-3 text-center font-medium">
                             Acciones
                         </th>
                     </tr>
@@ -104,11 +103,11 @@
 
                             <td class="px-4 py-3">
                                 @if ($question->active)
-                                    <flux:badge variant="success">
+                                    <flux:badge variant="success" color="green">
                                         Activa
                                     </flux:badge>
                                 @else
-                                    <flux:badge variant="zinc">
+                                    <flux:badge variant="zinc" color="zinc">
                                         Inactiva
                                     </flux:badge>
                                 @endif
@@ -116,13 +115,18 @@
 
                             <td class="px-4 py-3">
                                 <div class="flex justify-end gap-2">
-                                    <flux:button variant="ghost" size="sm"
+                                    <flux:button variant="ghost" color="blue" size="sm"
                                         wire:click="openEditModal({{ $question->id }})">
                                         Editar
                                     </flux:button>
 
-                                    <flux:button variant="ghost" size="sm"
-                                        wire:click="toggleActive({{ $question->id }})">
+                                    <flux:button variant="ghost" color="fuchsia" size="sm"
+                                        href="{{ route('survey-management.question-options', [$questionnaire, $version, $section, $question]) }}">
+                                        Opciones
+                                    </flux:button>
+
+                                    <flux:button variant="ghost" :color="$section->active ? 'amber' : 'green'"
+                                        size="sm" wire:click="toggleActive({{ $question->id }})">
                                         {{ $question->active ? 'Desactivar' : 'Activar' }}
                                     </flux:button>
                                 </div>

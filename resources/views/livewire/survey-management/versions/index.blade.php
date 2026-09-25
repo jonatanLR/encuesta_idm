@@ -10,13 +10,12 @@
             </flux:text>
         </div>
 
-        <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
+        <flux:button variant="outline" color="lime" icon="plus" wire:click="openCreateModal">
             Nueva versión
         </flux:button>
 
-        <flux:button variant="ghost" :href="route('survey-management.index')" wire:navigate>
-            Volver a encuestas
-        </flux:button>
+        <flux:button variant="outline" color="emerald" :href="route('survey-management.index')" wire:navigate>
+            <- Volver a encuestas </flux:button>
     </div>
 
     @if (session()->has('success'))
@@ -95,14 +94,14 @@
 
                                 <td class="whitespace-nowrap px-6 py-4 text-right">
                                     <div class="flex justify-end gap-2">
-                                        <flux:button variant="ghost" size="sm" disabled>
+                                        <flux:button variant="ghost" color="blue" size="sm" disabled>
                                             Editar
                                         </flux:button>
-                                        <flux:button variant="ghost" size="sm"
+                                        <flux:button variant="ghost" color="yellow" size="sm"
                                             :href="route('survey-management.sections', [
-                                                    'questionnaire' => $questionnaire->id,
-                                                    'version' => $version->id,
-                                                ])">
+                                                                                                            'questionnaire' => $questionnaire->id,
+                                                                                                            'version' => $version->id,
+                                                                                                        ])">
                                             Secciones
                                         </flux:button>
                                     </div>

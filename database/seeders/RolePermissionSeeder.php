@@ -64,6 +64,10 @@ class RolePermissionSeeder extends Seeder
                 'question.create',
                 'question.update',
                 'question.activate',
+                'question-option.view',
+                'question-option.create',
+                'question-option.update',
+                'question-option.activate',
             ])->pluck('id')
         );
         Role::where('slug', 'field-user')->firstOrFail()->permissions()->sync(

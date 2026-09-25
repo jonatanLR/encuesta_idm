@@ -12,7 +12,7 @@
             </flux:text>
         </div>
 
-        <flux:button variant="primary" wire:click="startSurvey" wire:loading.attr="disabled">
+        <flux:button variant="outline" color="emerald" wire:click="startSurvey" wire:loading.attr="disabled">
             <span wire:loading.remove>
                 + Nueva encuesta
             </span>
@@ -69,7 +69,7 @@
                                 Estado
                             </th>
 
-                            <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-zinc-500">
+                            <th class="px-6 py-3 text-center text-xs font-medium uppercase tracking-wide text-zinc-500">
                                 Acciones
                             </th>
 
@@ -153,12 +153,12 @@
                                     <div class="flex justify-end gap-2">
 
                                         <flux:button href="{{ route('survey.form', ['response' => $response->id]) }}"
-                                            wire:navigate variant="ghost" size="sm">
+                                            wire:navigate variant="ghost" color="violet" size="sm">
                                             Ver
                                         </flux:button>
 
                                         <flux:button href="{{ route('survey.form', ['response' => $response->id]) }}"
-                                            wire:navigate variant="ghost" size="sm">
+                                            wire:navigate variant="ghost" color="blue" size="sm">
                                             Editar
                                         </flux:button>
 

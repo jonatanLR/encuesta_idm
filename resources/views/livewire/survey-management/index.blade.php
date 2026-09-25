@@ -8,7 +8,7 @@
             </flux:text>
         </div>
 
-        <flux:button variant="primary" disabled>
+        <flux:button variant="outline" color="emerald" disabled>
             + Crear encuesta
         </flux:button>
     </div>
@@ -45,7 +45,7 @@
                                 Estado
                             </th>
                             <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                class="px-6 py-3 text-center text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Acciones
                             </th>
                         </tr>
@@ -75,11 +75,11 @@
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right">
                                     <div class="flex justify-end gap-2">
-                                        <flux:button variant="ghost" size="sm"
+                                        <flux:button variant="ghost" color="blue" size="sm"
                                             wire:click="openEditModal({{ $questionnaire->id }})">
                                             Editar
                                         </flux:button>
-                                        <flux:button variant="ghost" size="sm"
+                                        <flux:button variant="ghost" color="orange" size="sm"
                                             :href="route('survey-management.versions', $questionnaire)" wire:navigate>
                                             Versiones
                                         </flux:button>

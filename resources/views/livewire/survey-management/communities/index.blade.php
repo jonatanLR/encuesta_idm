@@ -15,9 +15,9 @@
         </div>
 
         {{-- boton para abrir el modal de crear una nueva comunidad --}}
-        <flux:button variant="primary" wire:click="openCreateModal">
+        <flux:button variant="outline" color="emerald" wire:click="openCreateModal">
             + Nueva comunidad
-        </flux:button>>
+        </flux:button>
     </div>
 
     <div class="flex items-center gap-4">
@@ -37,7 +37,7 @@
                         <th class="px-4 py-3 font-medium">Nombre</th>
                         <th class="px-4 py-3 font-medium">Tipo</th>
                         <th class="px-4 py-3 font-medium">Estado</th>
-                        <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                        <th class="px-4 py-3 text-center font-medium">Acciones</th>
                     </tr>
                 </thead>
 
@@ -80,18 +80,18 @@
 
                             <td class="px-4 py-3 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <flux:button size="sm" variant="primary" color="blue"
+                                    <flux:button size="sm" variant="ghost" color="blue"
                                         wire:click="openEditModal({{ $community->id }})">
                                         Editar
                                     </flux:button>
 
                                     @if ($community->active)
-                                        <flux:button size="sm" variant="primary" color="red"
+                                        <flux:button size="sm" variant="ghost" color="red"
                                             wire:click="confirmToggleCommunity({{ $community->id }})">
                                             Desactivar
                                         </flux:button>
                                     @else
-                                        <flux:button size="sm" variant="primary" color="green"
+                                        <flux:button size="sm" variant="ghost" color="green"
                                             wire:click="confirmToggleCommunity({{ $community->id }})">
                                             Activar
                                         </flux:button>
@@ -264,7 +264,7 @@
                         Cancelar
                     </flux:button>
 
-                    <flux:button variant="primary" color="{{ $statusTargetActive ? 'green' : 'red' }}"
+                    <flux:button variant="ghost" color="{{ $statusTargetActive ? 'green' : 'red' }}"
                         wire:click="toggleCommunityStatus">
                         {{ $statusTargetActive ? 'Activar' : 'Desactivar' }}
                     </flux:button>
