@@ -11,11 +11,9 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost"
-                :href="route('survey-management.versions', [
-                                    'questionnaire' => $questionnaire->id,
-                                ])">
-                Volver
+            <flux:button variant="primary" color="zinc" size="sm"
+                :href="route('survey-management.versions', $questionnaire)">
+                ← Volver
             </flux:button>
 
             <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
@@ -55,7 +53,7 @@
                             Estado
                         </th>
 
-                        <th class="px-4 py-3 text-right font-medium">
+                        <th class="px-4 py-3 text-center font-medium">
                             Acciones
                         </th>
                     </tr>
@@ -82,11 +80,11 @@
 
                             <td class="px-4 py-3">
                                 @if ($section->active)
-                                    <flux:badge variant="success">
+                                    <flux:badge variant="success" color="green">
                                         Activa
                                     </flux:badge>
                                 @else
-                                    <flux:badge variant="danger">
+                                    <flux:badge variant="danger" color="zinc">
                                         Inactiva
                                     </flux:badge>
                                 @endif
@@ -94,13 +92,22 @@
 
                             <td class="px-4 py-3">
                                 <div class="flex justify-end gap-2">
-                                    <flux:button variant="ghost" size="sm"
+                                    <flux:button variant="primary" color="blue" size="sm"
                                         wire:click="openEditModal({{ $section->id }})">
                                         Editar
                                     </flux:button>
 
                                     <flux:button variant="ghost" size="sm"
-                                        wire:click="toggleActive({{ $section->id }})">
+                                        :href="route('survey-management.questions', [
+                                                'questionnaire' => $questionnaire->id,
+                                                'version' => $version->id,
+                                                'section' => $section->id,
+                                            ])">
+                                        Preguntas
+                                    </flux:button>
+
+                                    <flux:button variant="primary" :color="$section->active ? 'amber' : 'green'"
+                                        size="sm" wire:click="toggleActive({{ $section->id }})">
                                         {{ $section->active ? 'Desactivar' : 'Activar' }}
                                     </flux:button>
                                 </div>
