@@ -11,12 +11,12 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost" color="zinc" size="sm"
+            <flux:button variant="outline" color="zinc" size="sm"
                 :href="route('survey-management.versions', $questionnaire)">
                 ← Volver
             </flux:button>
 
-            <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
+            <flux:button variant="primary" color="cyan" icon="plus" wire:click="openCreateModal">
                 Nueva sección
             </flux:button>
         </div>
@@ -91,7 +91,7 @@
                             </td>
 
                             <td class="px-4 py-3">
-                                <div class="flex justify-end gap-2">
+                                <div class="flex justify-center gap-2">
                                     <flux:button variant="ghost" color="blue" size="sm"
                                         wire:click="openEditModal({{ $section->id }})">
                                         Editar

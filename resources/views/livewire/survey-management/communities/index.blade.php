@@ -79,7 +79,7 @@
                             </td>
 
                             <td class="px-4 py-3 text-right">
-                                <div class="flex justify-end gap-2">
+                                <div class="flex justify-center gap-2">
                                     <flux:button size="sm" variant="ghost" color="blue"
                                         wire:click="openEditModal({{ $community->id }})">
                                         Editar

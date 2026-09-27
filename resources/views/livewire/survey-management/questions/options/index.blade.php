@@ -25,14 +25,13 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost"
+            <flux:button variant="outline" color="zinc"
                 href="{{ route('survey-management.questions', [$questionnaire, $version, $section]) }}">
-                Volver a preguntas
-            </flux:button>
+                <- Volver a preguntas </flux:button>
 
-            <flux:button variant="primary" wire:click="openCreateModal">
-                + Nueva opción
-            </flux:button>
+                    <flux:button variant="outline" color="lemon" wire:click="openCreateModal">
+                        + Nueva opción
+                    </flux:button>
         </div>
     </div>
 

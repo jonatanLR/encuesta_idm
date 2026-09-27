@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
@@ -38,13 +37,16 @@ Route::middleware(['auth'])->group(function () {
         '/administrar-encuestas/{questionnaire}/versiones/{version}/secciones/{section}/preguntas/{question}/opciones',
         \App\Livewire\SurveyManagement\Questions\Options\Index::class
     )->name('survey-management.question-options');
+    Route::livewire(
+        '/administrar-encuestas/{questionnaire}/versiones/{version}/secciones/{section}/preguntas/{question}/condiciones',
+        \App\Livewire\SurveyManagement\Questions\Conditions\Index::class
+    )->name('survey-management.question-conditions');
 
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
-
 
 Route::view('/community-test', 'community-test');
 

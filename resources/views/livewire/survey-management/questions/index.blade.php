@@ -14,9 +14,9 @@
         <div class="flex items-center gap-2">
             <flux:button variant="outline" color="zinc"
                 :href="route('survey-management.sections', [
-                            'questionnaire' => $questionnaire->id,
-                            'version' => $version->id,
-                        ])">
+                                            'questionnaire' => $questionnaire->id,
+                                            'version' => $version->id,
+                                        ])">
                 <- Volver a secciones </flux:button>
 
                     <flux:button variant="primary" wire:click="openCreateModal">
@@ -123,6 +123,11 @@
                                     <flux:button variant="ghost" color="fuchsia" size="sm"
                                         href="{{ route('survey-management.question-options', [$questionnaire, $version, $section, $question]) }}">
                                         Opciones
+                                    </flux:button>
+
+                                    <flux:button variant="ghost" color="blue" size="sm"
+                                        href="{{ route('survey-management.question-conditions', [$questionnaire, $version, $section, $question]) }}">
+                                        Condiciones
                                     </flux:button>
 
                                     <flux:button variant="ghost" :color="$section->active ? 'amber' : 'green'"
