@@ -25,6 +25,8 @@ class User extends Authenticatable // implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'active',
+        'last_login_at',
     ];
 
     /**
@@ -47,6 +49,8 @@ class User extends Authenticatable // implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active' => 'boolean',
+            'last_login_at' => 'datetime',
         ];
     }
 
@@ -78,7 +82,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         }
 
         return $this->roles()
-            ->whereHas('permissions', fn (Builder $query) => $query->where('slug', $slug))
+            ->whereHas('permissions', fn(Builder $query) => $query->where('slug', $slug))
             ->exists();
     }
 

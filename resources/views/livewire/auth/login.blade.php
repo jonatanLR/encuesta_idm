@@ -28,7 +28,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        if (!Auth::attempt(['email' => $this->email, 'password' => $this->password, 'active' => true], $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -39,6 +39,10 @@ new #[Layout('components.layouts.auth')] class extends Component {
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
 
+        Auth::user()->update([
+            'last_login_at' => now(),
+        ]);
+
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
     }
 
@@ -47,7 +51,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     protected function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (!RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
 
@@ -68,7 +72,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->email) . '|' . request()->ip());
     }
 }; ?>
 
@@ -80,19 +84,13 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     <form wire:submit="login" class="flex flex-col gap-6">
         <!-- Email Address -->
-        <flux:input wire:model="email" label="{{ __('Email address') }}" type="email" name="email" required autofocus autocomplete="email" placeholder="email@example.com" />
+        <flux:input wire:model="email" label="{{ __('Email address') }}" type="email" name="email" required autofocus
+            autocomplete="email" placeholder="email@example.com" />
 
         <!-- Password -->
         <div class="relative">
-            <flux:input
-                wire:model="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="current-password"
-                placeholder="Password"
-            />
+            <flux:input wire:model="password" label="{{ __('Password') }}" type="password" name="password" required
+                autocomplete="current-password" placeholder="Password" />
 
             @if (Route::has('password.request'))
                 <x-text-link class="absolute right-0 top-0" href="{{ route('password.request') }}">
@@ -109,8 +107,4 @@ new #[Layout('components.layouts.auth')] class extends Component {
         </div>
     </form>
 
-    <div class="space-x-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
-        Don't have an account?
-        <x-text-link href="{{ route('register') }}">Sign up</x-text-link>
-    </div>
 </div>

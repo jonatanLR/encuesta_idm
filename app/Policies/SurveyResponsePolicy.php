@@ -7,9 +7,19 @@ use App\Models\User;
 
 class SurveyResponsePolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->hasPermission('survey.view');
+    }
+
     public function view(User $user, SurveyResponse $surveyResponse): bool
     {
         return $user->hasPermission('survey.view');
+    }
+
+    public function create(User $user): bool
+    {
+        return $user->hasPermission('survey.create');
     }
 
     public function update(User $user, SurveyResponse $surveyResponse): bool
