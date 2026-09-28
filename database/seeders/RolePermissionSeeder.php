@@ -38,6 +38,21 @@ class RolePermissionSeeder extends Seeder
             'section.create' => 'Crear secciones',
             'section.update' => 'Editar secciones',
             'section.activate' => 'Activar o desactivar secciones',
+
+            'question.view' => 'Consultar preguntas',
+            'question.create' => 'Crear preguntas',
+            'question.update' => 'Editar preguntas',
+            'question.activate' => 'Activar o desactivar preguntas',
+
+            'question-option.view' => 'Consultar opciones de preguntas',
+            'question-option.create' => 'Crear opciones de preguntas',
+            'question-option.update' => 'Editar opciones de preguntas',
+            'question-option.activate' => 'Activar o desactivar opciones de preguntas',
+
+            'question-condition.view' => 'Consultar condiciones de preguntas',
+            'question-condition.create' => 'Crear condiciones de preguntas',
+            'question-condition.update' => 'Editar condiciones de preguntas',
+            'question-condition.activate' => 'Activar o desactivar condiciones de preguntas',
         ];
 
         foreach ($permissions as $slug => $name) {

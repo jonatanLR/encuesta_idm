@@ -58,6 +58,8 @@ class Form extends Component
         int $communityId,
         string $communityName
     ): void {
+        $this->authorize('update', $this->response);
+
         $community = Community::query()
             ->where('active', true)
             ->findOrFail($communityId);
@@ -71,6 +73,8 @@ class Form extends Component
     #[On('community-cleared')]
     public function communityCleared(): void
     {
+        $this->authorize('update', $this->response);
+
         $this->response->community_id = null;
         $this->response->save();
 
@@ -79,6 +83,8 @@ class Form extends Component
 
     public function mount(SurveyResponse $response): void
     {
+        $this->authorize('view', $response);
+
         $this->response = $response->load([
             'questionnaire',
             'surveyVersion',
@@ -102,6 +108,9 @@ class Form extends Component
     public function completeSurvey(
         SurveyResponseService $surveyResponseService
     ): void {
+
+        $this->authorize('complete', $this->response);
+
         $this->completionErrors = [];
         $this->completionQuestionLabels = [];
         $this->surveyCompletedMessage = false;
@@ -316,6 +325,8 @@ class Form extends Component
         int $memberId,
         string $value
     ): void {
+        $this->authorize('update', $this->response);
+
         $member = $this->getMemberForEditing($memberId);
 
         $value = trim($value);
@@ -335,6 +346,8 @@ class Form extends Component
         int $memberId,
         mixed $value
     ): void {
+        $this->authorize('update', $this->response);
+
         $member = $this->getMemberForEditing($memberId);
 
         if ($value === null || $value === '') {
@@ -370,6 +383,9 @@ class Form extends Component
         int $memberId,
         string $value
     ): void {
+
+        $this->authorize('update', $this->response);
+
         $member = $this->getMemberForEditing($memberId);
 
         if (! in_array($value, ['femenino', 'masculino'], true)) {
@@ -417,6 +433,8 @@ class Form extends Component
 
     public function saveDniFrontPhoto(): void
     {
+        $this->authorize('update', $this->response);
+
         if (! $this->dniFrontPhoto instanceof TemporaryUploadedFile) {
             return;
         }
@@ -431,6 +449,8 @@ class Form extends Component
 
     public function saveDniBackPhoto(): void
     {
+        $this->authorize('update', $this->response);
+
         if (! $this->dniBackPhoto instanceof TemporaryUploadedFile) {
             return;
         }
@@ -461,6 +481,8 @@ class Form extends Component
         int $questionId,
         TemporaryUploadedFile $file
     ): void {
+        $this->authorize('update', $this->response);
+
         $question = Question::query()
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
@@ -609,6 +631,8 @@ class Form extends Component
         int $memberId,
         int $relationshipId
     ): void {
+        $this->authorize('update', $this->response);
+
         $member = $this->getMemberForEditing($memberId);
 
         $relationship = HouseholdRelationship::query()
@@ -643,6 +667,8 @@ class Form extends Component
         int $memberId,
         string $value
     ): void {
+        $this->authorize('update', $this->response);
+
         $member = $this->getMemberForEditing($memberId);
 
         $value = trim($value);
@@ -685,6 +711,9 @@ class Form extends Component
         int $memberId,
         HouseholdMemberService $householdMemberService
     ): void {
+
+        $this->authorize('update', $this->response);
+
         $member = $this->response->household?->householdMembers
             ->firstWhere('id', $memberId);
 
@@ -817,6 +846,9 @@ class Form extends Component
         int $optionId,
         SurveyResponseService $surveyResponseService
     ): void {
+
+        $this->authorize('update', $this->response);
+
         $question = Question::query()
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
@@ -863,6 +895,8 @@ class Form extends Component
         string $value,
         SurveyResponseService $surveyResponseService
     ): void {
+        $this->authorize('update', $this->response);
+
         $question = Question::query()
             ->with('section')
             ->findOrFail($questionId);
@@ -885,6 +919,8 @@ class Form extends Component
         string $value,
         SurveyResponseService $surveyResponseService
     ): void {
+        $this->authorize('update', $this->response);
+
         $question = Question::query()
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
@@ -905,6 +941,8 @@ class Form extends Component
 
     public function saveLocation(float $latitude, float $longitude): void
     {
+        $this->authorize('update', $this->response);
+
         if ($latitude < -90 || $latitude > 90) {
             abort(422, 'La latitud no es válida.');
         }
@@ -924,6 +962,7 @@ class Form extends Component
         string $value,
         SurveyResponseService $surveyResponseService
     ): void {
+        $this->authorize('update', $this->response);
         $question = Question::query()
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);
@@ -947,6 +986,8 @@ class Form extends Component
         mixed $value,
         SurveyResponseService $surveyResponseService
     ): void {
+        $this->authorize('update', $this->response);
+
         $question = Question::query()
             ->with(['section', 'questionType'])
             ->findOrFail($questionId);

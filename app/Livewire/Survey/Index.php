@@ -14,6 +14,8 @@ class Index extends Component
     public function startSurvey(
         SurveyResponseService $surveyResponseService
     ) {
+        $this->authorize('create', SurveyResponse::class);
+
         $questionnaire = Questionnaire::query()
             ->where('name', 'Encuesta de Situación Social')
             ->where('active', true)
@@ -43,13 +45,14 @@ class Index extends Component
 
     public function render()
     {
+        $this->authorize('viewAny', SurveyResponse::class);
+
         $responses = SurveyResponse::query()
             ->with([
                 'community',
                 'answers.question',
                 'answers.option',
             ])
-            ->where('created_by', Auth::id())
             ->latest('created_at')
             ->get();
 
