@@ -13,10 +13,12 @@
                 Gestiona los usuarios del sistema.
             </flux:text>
         </div>
+        @can('create', \App\Models\User::class)
+            <flux:button variant="outline" color="emerald" wire:click="openCreateModal">
+                + Nuevo usuario
+            </flux:button>
+        @endcan
 
-        <flux:button variant="outline" color="emerald" wire:click="openCreateModal">
-            + Nuevo usuario
-        </flux:button>
     </div>
 
     <div class="flex items-center gap-4">
@@ -75,19 +77,26 @@
 
                             <td class="px-4 py-3 text-right">
                                 <div class="flex justify-center gap-2">
-                                    <flux:button size="sm" variant="ghost" color="blue">
-                                        Editar
-                                    </flux:button>
 
-                                    @if ($user->active)
-                                        <flux:button size="sm" variant="ghost" color="red">
-                                            Desactivar
+                                    @can('update', $user)
+                                        <flux:button size="sm" variant="ghost" color="blue"
+                                            wire:click="openEditModal({{ $user->id }})">
+                                            Editar
                                         </flux:button>
-                                    @else
-                                        <flux:button size="sm" variant="ghost" color="green">
-                                            Activar
-                                        </flux:button>
-                                    @endif
+                                    @endcan
+                                    @can('activate', $user)
+                                        @if ($user->active)
+                                            <flux:button size="sm" variant="ghost" color="red"
+                                                wire:click="confirmToggleUser({{ $user->id }})">
+                                                Desactivar
+                                            </flux:button>
+                                        @else
+                                            <flux:button size="sm" variant="ghost" color="green"
+                                                wire:click="confirmToggleUser({{ $user->id }})">
+                                                Activar
+                                            </flux:button>
+                                        @endif
+                                    @endcan
                                 </div>
                             </td>
                         </tr>
@@ -135,7 +144,7 @@
                     <flux:input wire:model="password_confirmation" type="password" label="Confirmar contraseña"
                         placeholder="Repita la contraseña" required />
 
-                    <flux:select wire:model="role_id" label="Rol" placeholder="Seleccione un rol" required>
+                    <flux:select wire:model="role_id" label="Rol" required>
                         <flux:select.option value="">
                             Seleccione un rol
                         </flux:select.option>
@@ -157,6 +166,100 @@
 
                     <flux:button type="button" variant="primary" wire:click="saveUser" wire:loading.attr="disabled">
                         Guardar
+                    </flux:button>
+                </div>
+            </div>
+        </flux:modal>
+    @endif
+
+
+    {{-- modal para editar un usuario  --}}
+    @if ($showEditModal)
+        <flux:modal wire:model.self="showEditModal" name="edit-user">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">
+                        Editar usuario
+                    </flux:heading>
+
+                    <flux:text class="mt-1">
+                        Modifica los datos del usuario seleccionado.
+                    </flux:text>
+                </div>
+
+                <div class="space-y-4">
+                    <flux:input wire:model="editName" label="Nombre" placeholder="Ingrese el nombre" required />
+
+                    <flux:input wire:model="editEmail" type="email" label="Correo electrónico"
+                        placeholder="Ingrese el correo electrónico" required />
+
+                    <flux:input wire:model="editPassword" type="password" label="Nueva contraseña"
+                        placeholder="Dejar vacío para conservar la actual" />
+
+                    <flux:input wire:model="editPasswordConfirmation" type="password"
+                        label="Confirmar nueva contraseña" placeholder="Repita la nueva contraseña" />
+
+                    <flux:select wire:model="editRoleId" label="Rol" required>
+                        <flux:select.option value="">
+                            Seleccione un rol
+                        </flux:select.option>
+
+                        @foreach ($roles as $role)
+                            <flux:select.option value="{{ $role->id }}">
+                                {{ $role->name }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+
+                    <flux:checkbox wire:model="editActive" label="Usuario activo" />
+
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <flux:button type="button" variant="ghost" x-on:click="$flux.modal('edit-user').close()">
+                        Cancelar
+                    </flux:button>
+
+                    <flux:button type="button" variant="primary" wire:click="updateUser"
+                        wire:loading.attr="disabled">
+                        Guardar cambios
+                    </flux:button>
+                </div>
+            </div>
+        </flux:modal>
+    @endif
+
+    {{-- Modal para cambiar el estado del usuario --}}
+    @if ($showStatusModal)
+        <flux:modal wire:model="showStatusModal" name="toggle-user-status">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">
+                        {{ $statusTargetActive ? 'Activar usuario' : 'Desactivar usuario' }}
+                    </flux:heading>
+
+                    <flux:text class="mt-2">
+                        {{ $statusTargetActive
+                            ? '¿Desea activar este usuario? Podrá iniciar sesión si sus credenciales son correctas.'
+                            : '¿Desea desactivar este usuario? No podrá iniciar sesión mientras permanezca inactivo.' }}
+                    </flux:text>
+                </div>
+
+                @error('status')
+                    <flux:callout variant="danger">
+                        {{ $message }}
+                    </flux:callout>
+                @enderror
+
+                <div class="flex justify-end gap-2">
+                    <flux:button variant="ghost" wire:click="$set('showStatusModal', false)">
+                        Cancelar
+                    </flux:button>
+
+                    <flux:button variant="ghost" color="{{ $statusTargetActive ? 'green' : 'red' }}"
+                        wire:click="toggleUserStatus">
+                        {{ $statusTargetActive ? 'Activar' : 'Desactivar' }}
                     </flux:button>
                 </div>
             </div>
