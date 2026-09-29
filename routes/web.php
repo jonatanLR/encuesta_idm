@@ -40,6 +40,12 @@ Route::middleware(['auth'])->group(function () {
         \App\Livewire\SurveyManagement\Questions\Conditions\Index::class
     )->name('survey-management.question-conditions');
 
+    // ruta para administración de usuarios
+    Route::livewire(
+        '/administracion/usuarios',
+        \App\Livewire\Administration\Users\Index::class
+    )->name('administration.users');
+
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');

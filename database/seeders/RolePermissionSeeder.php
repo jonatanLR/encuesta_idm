@@ -53,6 +53,11 @@ class RolePermissionSeeder extends Seeder
             'question-condition.create' => 'Crear condiciones de preguntas',
             'question-condition.update' => 'Editar condiciones de preguntas',
             'question-condition.activate' => 'Activar o desactivar condiciones de preguntas',
+
+            'user.view' => 'Consultar usuarios',
+            'user.create' => 'Crear usuarios',
+            'user.update' => 'Editar usuarios',
+            'user.activate' => 'Activar o desactivar usuarios',
         ];
 
         foreach ($permissions as $slug => $name) {

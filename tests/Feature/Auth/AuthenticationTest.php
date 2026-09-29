@@ -24,6 +24,39 @@ test('users can authenticate using the login screen', function () {
     $this->assertAuthenticated();
 });
 
+test('inactive users can not authenticate using the login screen', function () {
+    $user = User::factory()->create([
+        'active' => false,
+    ]);
+
+    $response = LivewireVolt::test('auth.login')
+        ->set('email', $user->email)
+        ->set('password', 'password')
+        ->call('login');
+
+    $response
+        ->assertHasErrors(['email']);
+
+    $this->assertGuest();
+
+    expect($user->fresh()->last_login_at)->toBeNull();
+});
+
+test('last login is updated after successful authentication', function () {
+    $user = User::factory()->create([
+        'active' => true,
+        'last_login_at' => null,
+    ]);
+
+    LivewireVolt::test('auth.login')
+        ->set('email', $user->email)
+        ->set('password', 'password')
+        ->call('login')
+        ->assertHasNoErrors();
+
+    expect($user->fresh()->last_login_at)->not->toBeNull();
+});
+
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
