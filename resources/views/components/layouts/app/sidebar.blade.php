@@ -58,6 +58,12 @@
                         :current="request()->routeIs('administration.users')" wire:navigate>
                         Usuarios
                     </flux:navlist.item>
+                    @can('viewAny', \App\Models\Role::class)
+                        <flux:navlist.item icon="key" :href="route('administration.roles')"
+                            :current="request()->routeIs('administration.roles')" wire:navigate>
+                            Roles
+                        </flux:navlist.item>
+                    @endcan
                 </flux:navlist.group>
             @endcan
 

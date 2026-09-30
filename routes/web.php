@@ -46,6 +46,10 @@ Route::middleware(['auth'])->group(function () {
         \App\Livewire\Administration\Users\Index::class
     )->name('administration.users');
 
+    Route::livewire(
+        '/administracion/roles',
+        \App\Livewire\Administration\Roles\Index::class
+    )->name('administration.roles');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');

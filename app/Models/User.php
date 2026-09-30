@@ -82,7 +82,11 @@ class User extends Authenticatable // implements MustVerifyEmail
         }
 
         return $this->roles()
-            ->whereHas('permissions', fn(Builder $query) => $query->where('slug', $slug))
+            ->where('roles.active', true)
+            ->whereHas(
+                'permissions',
+                fn(Builder $query) => $query->where('slug', $slug)
+            )
             ->exists();
     }
 

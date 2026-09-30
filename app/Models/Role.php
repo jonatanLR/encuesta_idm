@@ -15,6 +15,13 @@ class Role extends Model
         'slug',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'active' => 'boolean',
+        ];
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
