@@ -37,10 +37,12 @@ it('grants role policy abilities only to admins', function () {
         ->and($policy->view($admin, $role))->toBeTrue()
         ->and($policy->create($admin))->toBeTrue()
         ->and($policy->update($admin, $role))->toBeTrue()
+        ->and($policy->activate($admin, $role))->toBeTrue()
         ->and($policy->viewAny($fieldUser))->toBeFalse()
         ->and($policy->view($fieldUser, $role))->toBeFalse()
         ->and($policy->create($fieldUser))->toBeFalse()
-        ->and($policy->update($fieldUser, $role))->toBeFalse();
+        ->and($policy->update($fieldUser, $role))->toBeFalse()
+        ->and($policy->activate($fieldUser, $role))->toBeFalse();
 });
 
 it('allows admin to open roles administration', function () {
@@ -338,6 +340,94 @@ it('does not allow non-admin users to create roles', function (string $roleSlug)
 
     expect(Role::query()->where('slug', 'unauthorized-role')->exists())->toBeFalse();
 })->with([
+    'survey-admin',
+    'field-user',
+]);
+
+
+it('does not grant permissions from an inactive role', function () {
+    $role = Role::create([
+        'name' => 'Community operator',
+        'slug' => 'community-operator',
+        'active' => true,
+    ]);
+
+    $permission = Permission::create([
+        'name' => 'Consultar comunidades',
+        'slug' => 'community.view',
+    ]);
+
+    $role->permissions()->attach($permission);
+
+    $user = User::factory()->create();
+    $user->roles()->attach($role);
+
+    expect($user->hasPermission('community.view'))->toBeTrue();
+
+    $role->active = false;
+    $role->save();
+
+    expect($user->hasPermission('community.view'))->toBeFalse();
+});
+
+it('restores permissions when an inactive role is reactivated', function () {
+    $role = Role::create([
+        'name' => 'Community operator',
+        'slug' => 'community-operator',
+        'active' => true,
+    ]);
+
+    $permission = Permission::create([
+        'name' => 'Consultar comunidades',
+        'slug' => 'community.view',
+    ]);
+
+    $role->permissions()->attach($permission);
+
+    $user = User::factory()->create();
+    $user->roles()->attach($role);
+
+    $role->active = false;
+    $role->save();
+
+    expect($user->hasPermission('community.view'))->toBeFalse();
+
+    $role->active = true;
+    $role->save();
+
+    expect($user->hasPermission('community.view'))->toBeTrue();
+});
+
+
+it('does not allow changing the status of protected base roles', function (string $roleSlug) {
+    $adminRole = Role::create([
+        'name' => 'Administrator',
+        'slug' => 'admin',
+        'active' => true,
+    ]);
+
+    $admin = User::factory()->create();
+    $admin->roles()->attach($adminRole);
+
+    if ($roleSlug === 'admin') {
+        $protectedRole = $adminRole;
+    } else {
+        $protectedRole = Role::create([
+            'name' => $roleSlug,
+            'slug' => $roleSlug,
+            'active' => true,
+        ]);
+    }
+
+    $this->actingAs($admin);
+
+    Livewire::test(RolesIndex::class)
+        ->call('deactivateRole', $protectedRole->id)
+        ->assertHasNoErrors();
+
+    expect($protectedRole->fresh()->active)->toBeTrue();
+})->with([
+    'admin',
     'survey-admin',
     'field-user',
 ]);
