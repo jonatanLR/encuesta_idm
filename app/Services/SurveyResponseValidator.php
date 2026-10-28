@@ -41,14 +41,12 @@ class SurveyResponseValidator
 
         $generalQuestions = $questions
             ->filter(
-                fn(Question $question) =>
-                $question->section?->code !== 'MEMBER'
+                fn (Question $question) => $question->section?->code !== 'MEMBER'
             );
 
         $memberQuestions = $questions
             ->filter(
-                fn(Question $question) =>
-                $question->section?->code === 'MEMBER'
+                fn (Question $question) => $question->section?->code === 'MEMBER'
             );
 
         foreach ($generalQuestions as $question) {
@@ -125,8 +123,7 @@ class SurveyResponseValidator
     ): bool {
         $answer = $question->answers
             ->first(
-                fn($answer) =>
-                $answer->household_member_id ===
+                fn ($answer) => $answer->household_member_id ===
                     $householdMember?->id
             );
 
@@ -134,11 +131,24 @@ class SurveyResponseValidator
             return false;
         }
 
-        return $answer->text_value !== null
+        if ($question->questionType?->code === 'image') {
+            return $answer->surveyFiles()->exists();
+        }
+
+        return $this->hasTextValue($answer->text_value)
             || $answer->number_value !== null
             || $answer->date_value !== null
+            || $answer->boolean_value !== null
             || $answer->option_id !== null
             || $answer->selectedOptions()->exists();
+    }
+
+    /**
+     * Un texto vacío o compuesto solo por espacios no cuenta como respuesta.
+     */
+    protected function hasTextValue(?string $value): bool
+    {
+        return $value !== null && trim($value) !== '';
     }
 
     public function isValid(
