@@ -18,6 +18,7 @@ use App\Services\SurveyResponseService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -28,6 +29,20 @@ class Form extends Component
     use WithFileUploads;
 
     public SurveyResponse $response;
+
+    /**
+     * Modo consulta: se activa con "Ver" (?modo=lectura) o cuando el usuario
+     * no puede modificar la encuesta. Solo afecta la interfaz; cada acción
+     * de escritura sigue autorizándose en el servidor.
+     */
+    #[Locked]
+    public bool $readOnly = false;
+
+    #[Locked]
+    public bool $canComplete = false;
+
+    #[Locked]
+    public bool $canEditFromReadOnly = false;
 
     public int $currentSectionIndex = 0;
 
@@ -86,6 +101,15 @@ class Form extends Component
     public function mount(SurveyResponse $response): void
     {
         $this->authorize('view', $response);
+
+        $this->readOnly = request()->query('modo') === 'lectura'
+            || Gate::denies('update', $response);
+
+        $this->canComplete = ! $this->readOnly
+            && Gate::allows('complete', $response);
+
+        $this->canEditFromReadOnly = $this->readOnly
+            && Gate::allows('update', $response);
 
         $this->response = $response->load([
             'questionnaire',
@@ -1012,12 +1036,12 @@ class Form extends Component
 
     /**
      * Crea el hogar y el jefe/a de hogar al entrar a la sección MEMBER
-     * solo si el usuario puede modificar la encuesta. Quien solo puede
-     * consultar navega sin generar escrituras.
+     * solo si el usuario puede modificar la encuesta y no está en modo
+     * consulta. Quien solo consulta navega sin generar escrituras.
      */
     protected function ensureHouseholdWhenAuthorized(): void
     {
-        if (Gate::allows('update', $this->response)) {
+        if (! $this->readOnly && Gate::allows('update', $this->response)) {
             $this->ensureHousehold();
         }
     }

@@ -12,15 +12,17 @@
             </flux:text>
         </div>
 
-        <flux:button variant="outline" color="emerald" wire:click="startSurvey" wire:loading.attr="disabled">
-            <span wire:loading.remove>
-                + Nueva encuesta
-            </span>
+        @can('create', \App\Models\SurveyResponse::class)
+            <flux:button variant="outline" color="emerald" wire:click="startSurvey" wire:loading.attr="disabled">
+                <span wire:loading.remove>
+                    + Nueva encuesta
+                </span>
 
-            <span wire:loading>
-                Creando...
-            </span>
-        </flux:button>
+                <span wire:loading>
+                    Creando...
+                </span>
+            </flux:button>
+        @endcan
 
     </div>
 
@@ -152,15 +154,19 @@
 
                                     <div class="flex justify-end gap-2">
 
-                                        <flux:button href="{{ route('survey.form', ['response' => $response->id]) }}"
+                                        <flux:button
+                                            href="{{ route('survey.form', ['response' => $response->id, 'modo' => 'lectura']) }}"
                                             wire:navigate variant="ghost" color="violet" size="sm">
                                             Ver
                                         </flux:button>
 
-                                        <flux:button href="{{ route('survey.form', ['response' => $response->id]) }}"
-                                            wire:navigate variant="ghost" color="blue" size="sm">
-                                            Editar
-                                        </flux:button>
+                                        @can('update', $response)
+                                            <flux:button
+                                                href="{{ route('survey.form', ['response' => $response->id]) }}"
+                                                wire:navigate variant="ghost" color="blue" size="sm">
+                                                Editar
+                                            </flux:button>
+                                        @endcan
 
                                     </div>
 
