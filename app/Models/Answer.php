@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Answer extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'client_id',
         'survey_response_id',
         'question_id',
         'text_value',
@@ -27,6 +29,17 @@ class Answer extends Model
         'date_value' => 'date',
         'boolean_value' => 'boolean',
     ];
+
+    /**
+     * Identificador estable para la sincronización offline (D-03).
+     * El cliente puede enviarlo; si no viene, se genera aquí.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $answer): void {
+            $answer->client_id ??= (string) Str::ulid();
+        });
+    }
 
     public function surveyResponse()
     {
