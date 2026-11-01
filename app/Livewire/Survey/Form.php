@@ -16,7 +16,9 @@ use App\Services\ConditionEvaluator;
 use App\Services\HouseholdMemberService;
 use App\Services\SurveyResponseService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -27,6 +29,20 @@ class Form extends Component
     use WithFileUploads;
 
     public SurveyResponse $response;
+
+    /**
+     * Modo consulta: se activa con "Ver" (?modo=lectura) o cuando el usuario
+     * no puede modificar la encuesta. Solo afecta la interfaz; cada acción
+     * de escritura sigue autorizándose en el servidor.
+     */
+    #[Locked]
+    public bool $readOnly = false;
+
+    #[Locked]
+    public bool $canComplete = false;
+
+    #[Locked]
+    public bool $canEditFromReadOnly = false;
 
     public int $currentSectionIndex = 0;
 
@@ -43,6 +59,7 @@ class Form extends Component
     public array $memberForm = [];
 
     public array $completionErrors = [];
+
     public array $completionQuestionLabels = [];
 
     public bool $surveyCompletedMessage = false;
@@ -84,6 +101,15 @@ class Form extends Component
     public function mount(SurveyResponse $response): void
     {
         $this->authorize('view', $response);
+
+        $this->readOnly = request()->query('modo') === 'lectura'
+            || Gate::denies('update', $response);
+
+        $this->canComplete = ! $this->readOnly
+            && Gate::allows('complete', $response);
+
+        $this->canEditFromReadOnly = $this->readOnly
+            && Gate::allows('update', $response);
 
         $this->response = $response->load([
             'questionnaire',
@@ -167,7 +193,7 @@ class Form extends Component
             ->whereIn('code', array_unique($codes))
             ->get(['code', 'label'])
             ->keyBy('code')
-            ->map(fn(Question $question): string => $question->label)
+            ->map(fn (Question $question): string => $question->label)
             ->all();
     }
 
@@ -183,7 +209,7 @@ class Form extends Component
         $nextSection = $sections->get($nextIndex);
 
         if ($nextSection?->code === 'MEMBER') {
-            $this->ensureHousehold();
+            $this->ensureHouseholdWhenAuthorized();
         }
 
         $this->currentSectionIndex = $nextIndex;
@@ -207,7 +233,7 @@ class Form extends Component
         $section = $sections->get($index);
 
         if ($section?->code === 'MEMBER') {
-            $this->ensureHousehold();
+            $this->ensureHouseholdWhenAuthorized();
         }
 
         $this->currentSectionIndex = $index;
@@ -272,6 +298,8 @@ class Form extends Component
 
     public function addMember(): void
     {
+        $this->authorize('update', $this->response);
+
         $this->validate([
             'newMemberName' => [
                 'required',
@@ -1004,6 +1032,18 @@ class Form extends Component
         );
 
         $this->response->load('answers');
+    }
+
+    /**
+     * Crea el hogar y el jefe/a de hogar al entrar a la sección MEMBER
+     * solo si el usuario puede modificar la encuesta y no está en modo
+     * consulta. Quien solo consulta navega sin generar escrituras.
+     */
+    protected function ensureHouseholdWhenAuthorized(): void
+    {
+        if (! $this->readOnly && Gate::allows('update', $this->response)) {
+            $this->ensureHousehold();
+        }
     }
 
     // HouseHold protected

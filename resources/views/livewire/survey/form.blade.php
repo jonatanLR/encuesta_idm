@@ -13,12 +13,41 @@
             </flux:text>
         </div>
 
-        <flux:modal.trigger name="confirm-complete-survey">
-            <flux:button variant="primary">
-                Finalizar encuesta
-            </flux:button>
-        </flux:modal.trigger>
+        @if ($canComplete)
+            <flux:modal.trigger name="confirm-complete-survey">
+                <flux:button variant="primary">
+                    Finalizar encuesta
+                </flux:button>
+            </flux:modal.trigger>
+        @endif
     </div>
+
+    {{-- Aviso de modo consulta --}}
+    @if ($readOnly)
+        <flux:callout variant="secondary" icon="eye">
+            <flux:callout.heading>
+                Modo consulta
+            </flux:callout.heading>
+
+            <flux:callout.text>
+                @if ($canEditFromReadOnly)
+                    Está viendo esta encuesta en modo de solo lectura.
+                @else
+                    Esta encuesta pertenece a otro usuario. Puede consultar la información registrada, pero no
+                    modificarla.
+                @endif
+            </flux:callout.text>
+
+            @if ($canEditFromReadOnly)
+                <x-slot name="actions">
+                    <flux:button size="sm" href="{{ route('survey.form', ['response' => $response->id]) }}"
+                        wire:navigate>
+                        Editar encuesta
+                    </flux:button>
+                </x-slot>
+            @endif
+        </flux:callout>
+    @endif
 
 
     {{-- Información de la encuesta --}}
@@ -170,10 +199,18 @@
                                 </button>
                             @endforeach
 
-                            <button type="button" wire:click="openAddMemberModal"
-                                class="rounded-lg border border-dashed border-zinc-400 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100">
-                                + Agregar miembro
-                            </button>
+                            @unless ($readOnly)
+                                <button type="button" wire:click="openAddMemberModal"
+                                    class="rounded-lg border border-dashed border-zinc-400 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100">
+                                    + Agregar miembro
+                                </button>
+                            @endunless
+
+                            @if ($readOnly && $members->isEmpty())
+                                <p class="text-sm text-zinc-500">
+                                    No hay miembros registrados en este hogar.
+                                </p>
+                            @endif
                         </div>
                         @php
                             $selectedMember = $members->firstWhere('id', $selectedMemberId);
@@ -202,7 +239,7 @@
                                         @endif
                                     </div>
 
-                                    @if (!$selectedMember->capture_started_at)
+                                    @if (!$selectedMember->capture_started_at && !$readOnly)
                                         <button type="button"
                                             wire:click="startMemberCapture({{ $selectedMember->id }})"
                                             class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white
@@ -224,6 +261,8 @@
 
                 @endif
 
+                {{-- En modo consulta, el fieldset deshabilita todos los campos nativos de la sección --}}
+                <fieldset @disabled($readOnly) class="m-0 min-w-0 space-y-6 border-0 p-0">
 
                 @if ($currentSection?->code !== 'MEMBER' || $selectedMember?->capture_started_at)
                     @forelse ($questions as $question)
@@ -234,6 +273,7 @@
                                     @include('livewire.survey.questions.community', [
                                         'question' => $question,
                                         'response' => $response,
+                                        'readOnly' => $readOnly,
                                     ])
                                 @elseif (
                                     $currentSection?->code === 'MEMBER' &&
@@ -245,7 +285,7 @@
                                                 <div class="rounded-xl border border-zinc-200 bg-white p-4">
                                                     <flux:input label="{{ $question->label }}"
                                                         placeholder="Ingrese el nombre completo"
-                                                        wire:model.blur="memberForm.name"
+                                                        wire:model.blur="memberForm.name" :disabled="$readOnly"
                                                         wire:blur="saveMemberName({{ $selectedMember->id }}, $event.target.value)" />
                                                 </div>
                                             @break
@@ -255,7 +295,7 @@
                                                 <div class="rounded-xl border border-zinc-200 bg-white p-4">
                                                     <flux:input type="number" step="0.01" min="0" max="120"
                                                         label="{{ $question->label }}" placeholder="Ingrese la edad"
-                                                        wire:model.blur="memberForm.age"
+                                                        wire:model.blur="memberForm.age" :disabled="$readOnly"
                                                         wire:blur="saveMemberAge({{ $selectedMember->id }}, $event.target.value)" />
                                                 </div>
                                             @break
@@ -264,7 +304,7 @@
                                             @case('MEMBER_003')
                                                 <div class="rounded-xl border border-zinc-200 bg-white p-4">
                                                     <flux:radio.group label="{{ $question->label }}"
-                                                        wire:model="memberForm.sex">
+                                                        wire:model="memberForm.sex" :disabled="$readOnly">
                                                         @foreach ($question->options as $option)
                                                             <flux:radio value="{{ $option->value }}"
                                                                 label="{{ $option->label }}" />
@@ -281,7 +321,7 @@
                                                             readonly />
                                                     @else
                                                         <flux:select label="{{ $question->label }}" placeholder="Seleccione"
-                                                            wire:model="memberForm.relationship_id"
+                                                            wire:model="memberForm.relationship_id" :disabled="$readOnly"
                                                             wire:change="saveMemberRelationship({{ $selectedMember->id }}, $event.target.value)">
                                                             @foreach ($relationships as $relationship)
                                                                 <flux:select.option value="{{ $relationship->id }}">
@@ -297,7 +337,7 @@
                                             @case('MEMBER_005')
                                                 <div class="rounded-xl border border-zinc-200 bg-white p-4">
                                                     <flux:input label="{{ $question->label }}"
-                                                        placeholder="Ingrese el número de DNI" wire:model.blur="memberForm.dni"
+                                                        placeholder="Ingrese el número de DNI" wire:model.blur="memberForm.dni" :disabled="$readOnly"
                                                         wire:blur="saveMemberDni({{ $selectedMember->id }}, $event.target.value)" />
                                                 </div>
                                             @break
@@ -330,12 +370,19 @@
                                                         class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                                 </div>
 
-                                                <p class="mb-3 text-sm text-zinc-600">
-                                                    Fotografía registrada. Puede seleccionar una nueva para
-                                                    reemplazarla.
+                                                @unless ($readOnly)
+                                                    <p class="mb-3 text-sm text-zinc-600">
+                                                        Fotografía registrada. Puede seleccionar una nueva para
+                                                        reemplazarla.
+                                                    </p>
+                                                @endunless
+                                            @elseif ($readOnly)
+                                                <p class="text-sm text-zinc-500">
+                                                    Sin fotografía registrada.
                                                 </p>
                                             @endif
 
+                                            @unless ($readOnly)
                                             <input type="file" wire:model="{{ $photoProperty }}"
                                                 accept="image/jpeg,image/png"
                                                 class="block w-full text-sm text-zinc-600
@@ -353,6 +400,7 @@
                                                     {{ $message }}
                                                 </p>
                                             @enderror
+                                            @endunless
                                         </div>
                                     @endif
                                 @elseif ($question->questionType->code === 'image')
@@ -386,11 +434,18 @@
                                                     class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                             </div>
 
-                                            <p class="mb-3 text-sm text-zinc-600">
-                                                Imagen registrada. Puede seleccionar una nueva para reemplazarla.
+                                            @unless ($readOnly)
+                                                <p class="mb-3 text-sm text-zinc-600">
+                                                    Imagen registrada. Puede seleccionar una nueva para reemplazarla.
+                                                </p>
+                                            @endunless
+                                        @elseif ($readOnly)
+                                            <p class="text-sm text-zinc-500">
+                                                Sin imagen registrada.
                                             </p>
                                         @endif
 
+                                        @unless ($readOnly)
                                         <input id="question-{{ $question->id }}" type="file"
                                             wire:model="{{ $imageProperty }}" accept="image/jpeg,image/png"
                                             class="block w-full text-sm text-zinc-600
@@ -408,6 +463,7 @@
                                                 {{ $message }}
                                             </p>
                                         @enderror
+                                        @endunless
                                     </div>
                                 @elseif ($question->questionType->code === 'textarea')
                                     <div class="space-y-2">
@@ -493,9 +549,11 @@
                                 La captura de información de este miembro aún no ha iniciado.
                             </p>
 
-                            <p class="mt-1 text-sm text-amber-700">
-                                Presione "Capturar información" para comenzar.
-                            </p>
+                            @unless ($readOnly)
+                                <p class="mt-1 text-sm text-amber-700">
+                                    Presione "Capturar información" para comenzar.
+                                </p>
+                            @endunless
                         </div>
                     @endif
 
@@ -559,12 +617,19 @@
                                                                 class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                                         </div>
 
-                                                        <p class="mb-3 text-sm text-zinc-600">
-                                                            Imagen registrada. Puede seleccionar una nueva para
-                                                            reemplazarla.
+                                                        @unless ($readOnly)
+                                                            <p class="mb-3 text-sm text-zinc-600">
+                                                                Imagen registrada. Puede seleccionar una nueva para
+                                                                reemplazarla.
+                                                            </p>
+                                                        @endunless
+                                                    @elseif ($readOnly)
+                                                        <p class="text-sm text-zinc-500">
+                                                            Sin imagen registrada.
                                                         </p>
                                                     @endif
 
+                                                    @unless ($readOnly)
                                                     <input id="question-{{ $question->id }}" type="file"
                                                         wire:model="{{ $imageProperty }}" accept="image/jpeg,image/png"
                                                         class="block w-full text-sm text-zinc-600
@@ -582,6 +647,7 @@
                                                             {{ $message }}
                                                         </p>
                                                     @enderror
+                                                    @endunless
                                                 </div>
                                             @elseif (in_array($question->questionType->code, ['number', 'decimal'], true))
                                                 @include('livewire.survey.questions.number', [
@@ -627,6 +693,7 @@
 
                             <div wire:ignore data-closure-map data-latitude="{{ $response->latitude }}"
                                 data-longitude="{{ $response->longitude }}"
+                                data-readonly="{{ $readOnly ? 'true' : 'false' }}"
                                 class="h-96 w-full overflow-hidden rounded-xl border border-zinc-200"></div>
 
                             <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -635,6 +702,8 @@
                             </div>
                         </div>
                     @endif
+
+                </fieldset>
 
                 </div>
 
@@ -665,7 +734,7 @@
         </div>
 
         {{-- modal para agregar un nuevo miembro --}}
-        @if ($showAddMemberModal)
+        @if ($showAddMemberModal && !$readOnly)
             <flux:modal name="add-member" wire:model="showAddMemberModal" class="md:w-[32rem]">
                 <form wire:submit="addMember" class="space-y-6">
                     <div>
@@ -709,6 +778,7 @@
         @endif
 
         {{-- modal para confirmar la finalización de la encuesta --}}
+        @if ($canComplete)
         <flux:modal name="confirm-complete-survey" class="md:w-96">
             <div class="space-y-6">
                 <div>
@@ -742,5 +812,6 @@
                 </div>
             </div>
         </flux:modal>
+        @endif
 
     </div>

@@ -24,10 +24,11 @@ function initializeClosureMaps(root = document) {
 			&& longitudeValue !== ''
 			&& Number.isFinite(latitude)
 			&& Number.isFinite(longitude);
+		const isReadOnly = element.dataset.readonly === 'true';
 		const center = hasLocation ? [latitude, longitude] : defaultMapCenter;
 		const map = L.map(element).setView(center, hasLocation ? 17 : 13);
 		const marker = hasLocation
-			? L.marker(center, { draggable: true }).addTo(map)
+			? L.marker(center, { draggable: !isReadOnly }).addTo(map)
 			: null;
 
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -45,6 +46,14 @@ function initializeClosureMaps(root = document) {
 			}
 		};
 
+		element._closureMap = map;
+		element.dataset.mapInitialized = 'true';
+
+		// En modo consulta el mapa solo muestra la ubicación registrada.
+		if (isReadOnly) {
+			return;
+		}
+
 		let activeMarker = marker;
 
 		if (activeMarker) {
@@ -61,9 +70,6 @@ function initializeClosureMaps(root = document) {
 
 			updateLocation(activeMarker);
 		});
-
-		element._closureMap = map;
-		element.dataset.mapInitialized = 'true';
 	});
 }
 
