@@ -29,15 +29,37 @@
                 href="{{ route('survey-management.questions', [$questionnaire, $version, $section]) }}">
                 <- Volver a preguntas </flux:button>
 
-                    <flux:button variant="outline" color="lemon" wire:click="openCreateModal">
-                        + Nueva condición
-                    </flux:button>
+                    @unless ($versionLocked)
+                        <flux:button variant="outline" color="lemon" wire:click="openCreateModal">
+                            + Nueva condición
+                        </flux:button>
+                    @endunless
         </div>
     </div>
 
     @if (session('success'))
         <flux:callout variant="success" icon="check-circle">
             {{ session('success') }}
+        </flux:callout>
+    @endif
+
+    @if (session('error'))
+        <flux:callout variant="danger" icon="exclamation-triangle">
+            {{ session('error') }}
+        </flux:callout>
+    @endif
+
+    @if ($versionLocked)
+        <flux:callout variant="warning" icon="lock-closed">
+            <flux:callout.heading>
+                Versión publicada
+            </flux:callout.heading>
+
+            <flux:callout.text>
+                Esta versión ya se usa para capturar encuestas. Solo puede corregir textos (nombre, pregunta,
+                etiqueta, descripción) y el orden. Para crear, activar o desactivar elementos, o cambiar códigos,
+                tipos, obligatoriedad, valores o condiciones, cree una nueva versión.
+            </flux:callout.text>
         </flux:callout>
     @endif
 
@@ -107,15 +129,19 @@
 
                             <td class="px-4 py-3">
                                 <div class="flex justify-center gap-2">
-                                    <flux:button variant="ghost" color="blue" size="sm"
-                                        wire:click="openEditModal({{ $condition->id }})">
-                                        Editar
-                                    </flux:button>
+                                    @if ($versionLocked)
+                                        <span class="text-xs text-zinc-500">Solo lectura</span>
+                                    @else
+                                        <flux:button variant="ghost" color="blue" size="sm"
+                                            wire:click="openEditModal({{ $condition->id }})">
+                                            Editar
+                                        </flux:button>
 
-                                    <flux:button variant="ghost" color="{{ $condition->active ? 'red' : 'green' }}"
-                                        size="sm" wire:click="toggleActive({{ $condition->id }})">
-                                        {{ $condition->active ? 'Desactivar' : 'Activar' }}
-                                    </flux:button>
+                                        <flux:button variant="ghost" color="{{ $condition->active ? 'red' : 'green' }}"
+                                            size="sm" wire:click="toggleActive({{ $condition->id }})">
+                                            {{ $condition->active ? 'Desactivar' : 'Activar' }}
+                                        </flux:button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -142,6 +168,12 @@
                     {{ $question->code }} · {{ $question->label }}
                 </flux:text>
             </div>
+
+            @error('structure')
+                <flux:callout variant="danger" icon="exclamation-triangle">
+                    {{ $message }}
+                </flux:callout>
+            @enderror
 
             <div class="space-y-4">
                 <flux:field>

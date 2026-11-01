@@ -6,7 +6,9 @@ use App\Models\Question;
 use App\Models\Section;
 use App\Models\SurveyResponse;
 use App\Models\SurveyVersion;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 it('reports a clean database without findings', function () {
     $this->artisan('offline:preflight')
@@ -57,4 +59,16 @@ it('reports duplicates, historical member answers and test data without modifyin
         ->assertSuccessful();
 
     expect(DB::table('answers')->get()->toJson())->toBe($answersBefore);
+});
+
+it('does not count checks that are not applicable as findings', function () {
+    Schema::table('answers', function (Blueprint $table): void {
+        $table->dropUnique(['client_id']);
+        $table->dropColumn('client_id');
+    });
+
+    $this->artisan('offline:preflight')
+        ->expectsOutputToContain('Columna client_id aún no existe (migración pendiente).')
+        ->expectsOutputToContain('Revisiones con hallazgos: 0')
+        ->assertSuccessful();
 });

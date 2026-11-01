@@ -19,15 +19,37 @@
                                         ])">
                 <- Volver a secciones </flux:button>
 
-                    <flux:button variant="primary" wire:click="openCreateModal">
-                        + Nueva pregunta
-                    </flux:button>
+                    @unless ($versionLocked)
+                        <flux:button variant="primary" wire:click="openCreateModal">
+                            + Nueva pregunta
+                        </flux:button>
+                    @endunless
         </div>
     </div>
 
     @if (session('success'))
         <flux:callout variant="success" icon="check-circle">
             {{ session('success') }}
+        </flux:callout>
+    @endif
+
+    @if (session('error'))
+        <flux:callout variant="danger" icon="exclamation-triangle">
+            {{ session('error') }}
+        </flux:callout>
+    @endif
+
+    @if ($versionLocked)
+        <flux:callout variant="warning" icon="lock-closed">
+            <flux:callout.heading>
+                Versión publicada
+            </flux:callout.heading>
+
+            <flux:callout.text>
+                Esta versión ya se usa para capturar encuestas. Solo puede corregir textos (nombre, pregunta,
+                etiqueta, descripción) y el orden. Para crear, activar o desactivar elementos, o cambiar códigos,
+                tipos, obligatoriedad, valores o condiciones, cree una nueva versión.
+            </flux:callout.text>
         </flux:callout>
     @endif
 
@@ -130,10 +152,12 @@
                                         Condiciones
                                     </flux:button>
 
-                                    <flux:button variant="ghost" :color="$section->active ? 'amber' : 'green'"
-                                        size="sm" wire:click="toggleActive({{ $question->id }})">
-                                        {{ $question->active ? 'Desactivar' : 'Activar' }}
-                                    </flux:button>
+                                    @unless ($versionLocked)
+                                        <flux:button variant="ghost" :color="$question->active ? 'amber' : 'green'"
+                                            size="sm" wire:click="toggleActive({{ $question->id }})">
+                                            {{ $question->active ? 'Desactivar' : 'Activar' }}
+                                        </flux:button>
+                                    @endunless
                                 </div>
                             </td>
                         </tr>
@@ -161,6 +185,12 @@
                 </flux:text>
             </div>
 
+            @error('structure')
+                <flux:callout variant="danger" icon="exclamation-triangle">
+                    {{ $message }}
+                </flux:callout>
+            @enderror
+
             <div class="grid gap-4">
                 <flux:input wire:model="code" label="Código" placeholder="Ej. GENERAL_001"
                     :disabled="$editingQuestionId !== null" />
@@ -171,7 +201,7 @@
                 <flux:textarea wire:model="description" label="Descripción" placeholder="Descripción opcional"
                     rows="2" />
 
-                <flux:select wire:model="questionTypeId" label="Tipo de pregunta">
+                <flux:select wire:model="questionTypeId" label="Tipo de pregunta" :disabled="$versionLocked">
                     <option value="">Seleccione un tipo</option>
 
                     @foreach ($questionTypes as $questionType)
@@ -183,9 +213,9 @@
 
                 <flux:input wire:model="sortOrder" label="Orden" type="number" min="1" />
 
-                <flux:switch wire:model="required" label="Obligatoria" />
+                <flux:switch wire:model="required" label="Obligatoria" :disabled="$versionLocked" />
 
-                <flux:switch wire:model="active" label="Activa" />
+                <flux:switch wire:model="active" label="Activa" :disabled="$versionLocked" />
             </div>
 
             <div class="flex justify-end gap-2">
