@@ -100,7 +100,7 @@ class OfflinePreflight extends Command
         $this->table(['Revisión', 'Encontrados', 'Nota'], $results);
 
         $warnings = collect($results)
-            ->filter(fn (array $result): bool => $result[1] !== '0')
+            ->filter(fn (array $result): bool => ! in_array($result[1], ['0', 'N/A'], true))
             ->count();
 
         $this->newLine();

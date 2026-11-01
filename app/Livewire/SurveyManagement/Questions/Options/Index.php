@@ -3,26 +3,41 @@
 namespace App\Livewire\SurveyManagement\Questions\Options;
 
 use App\Models\Question;
-use App\Models\QuestionOption;
 use App\Models\Questionnaire;
+use App\Models\QuestionOption;
 use App\Models\Section;
 use App\Models\SurveyVersion;
+use App\Services\PublishedVersionGuard;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Index extends Component
 {
     public Questionnaire $questionnaire;
+
     public SurveyVersion $version;
+
     public Section $section;
+
     public Question $question;
 
+    /**
+     * Versión publicada: solo se permiten correcciones de texto y orden (D-08).
+     */
+    #[Locked]
+    public bool $versionLocked = false;
+
     public bool $showFormModal = false;
+
     public ?int $editingOptionId = null;
 
     public string $label = '';
+
     public string $value = '';
+
     public int $sortOrder = 1;
+
     public bool $active = true;
 
     public function mount(
@@ -47,11 +62,16 @@ class Index extends Component
         $this->version = $version;
         $this->section = $section;
         $this->question = $question;
+        $this->versionLocked = app(PublishedVersionGuard::class)->isLocked($version);
     }
 
     public function openCreateModal(): void
     {
         $this->authorize('create', QuestionOption::class);
+
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
 
         $this->resetForm();
         $this->sortOrder = $this->nextSortOrder();
@@ -86,6 +106,20 @@ class Index extends Component
             $isEditing ? 'update' : 'create',
             $isEditing ? $option : QuestionOption::class
         );
+
+        if ($this->rejectsStructuralChange(
+            current: $isEditing ? [
+                'value' => $option->value,
+                'active' => (bool) $option->active,
+            ] : [],
+            submitted: [
+                'value' => $this->value,
+                'active' => $this->active,
+            ],
+            isEditing: $isEditing,
+        )) {
+            return;
+        }
 
         $this->validate([
             'label' => ['required', 'string', 'max:255'],
@@ -129,6 +163,10 @@ class Index extends Component
 
         $this->authorize('activate', $option);
 
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
+
         $option->update([
             'active' => ! $option->active,
         ]);
@@ -145,6 +183,44 @@ class Index extends Component
     {
         $this->showFormModal = false;
         $this->resetForm();
+    }
+
+    /**
+     * Si la versión está publicada, informa al usuario y devuelve true.
+     */
+    private function blockWhenVersionLocked(): bool
+    {
+        if (! app(PublishedVersionGuard::class)->isLocked($this->version)) {
+            return false;
+        }
+
+        session()->flash('error', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+        return true;
+    }
+
+    /**
+     * En una versión publicada agrega el error del formulario si se intentó
+     * crear un elemento o cambiar alguno de los campos estructurales.
+     *
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $submitted
+     */
+    private function rejectsStructuralChange(array $current, array $submitted, bool $isEditing): bool
+    {
+        $guard = app(PublishedVersionGuard::class);
+
+        if (! $guard->isLocked($this->version)) {
+            return false;
+        }
+
+        if ($isEditing && $guard->changedFields($current, $submitted) === []) {
+            return false;
+        }
+
+        $this->addError('structure', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+        return true;
     }
 
     private function findOption(int $optionId): QuestionOption

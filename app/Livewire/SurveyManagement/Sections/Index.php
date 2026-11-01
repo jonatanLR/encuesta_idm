@@ -5,8 +5,11 @@ namespace App\Livewire\SurveyManagement\Sections;
 use App\Models\Questionnaire;
 use App\Models\Section;
 use App\Models\SurveyVersion;
+use App\Services\PublishedVersionGuard;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Index extends Component
@@ -14,6 +17,12 @@ class Index extends Component
     public Questionnaire $questionnaire;
 
     public SurveyVersion $version;
+
+    /**
+     * Versión publicada: solo se permiten correcciones de texto y orden (D-08).
+     */
+    #[Locked]
+    public bool $versionLocked = false;
 
     public bool $showFormModal = false;
 
@@ -41,11 +50,16 @@ class Index extends Component
 
         $this->questionnaire = $questionnaire;
         $this->version = $version;
+        $this->versionLocked = app(PublishedVersionGuard::class)->isLocked($version);
     }
 
     public function openCreateModal(): void
     {
         $this->authorize('create', Section::class);
+
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
 
         $this->resetForm();
 
@@ -83,6 +97,22 @@ class Index extends Component
             $this->authorize('update', $section);
         }
 
+        if ($this->rejectsStructuralChange(
+            current: isset($section) ? [
+                'code' => $section->code,
+                'parent_id' => $section->parent_id === null ? null : (int) $section->parent_id,
+                'active' => (bool) $section->active,
+            ] : [],
+            submitted: [
+                'code' => $this->code,
+                'parent_id' => $this->parentId,
+                'active' => $this->active,
+            ],
+            isEditing: $this->editingSectionId !== null,
+        )) {
+            return;
+        }
+
         $validated = $this->validate([
             'code' => [
                 'required',
@@ -90,8 +120,7 @@ class Index extends Component
                 'max:50',
                 Rule::unique('sections', 'code')
                     ->where(
-                        fn($query) =>
-                        $query->where(
+                        fn ($query) => $query->where(
                             'survey_version_id',
                             $this->version->id
                         )
@@ -162,6 +191,10 @@ class Index extends Component
 
         $this->authorize('activate', $section);
 
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
+
         $section->update([
             'active' => ! $section->active,
         ]);
@@ -172,6 +205,44 @@ class Index extends Component
                 ? 'La sección se activó correctamente.'
                 : 'La sección se desactivó correctamente.'
         );
+    }
+
+    /**
+     * Si la versión está publicada, informa al usuario y devuelve true.
+     */
+    private function blockWhenVersionLocked(): bool
+    {
+        if (! app(PublishedVersionGuard::class)->isLocked($this->version)) {
+            return false;
+        }
+
+        session()->flash('error', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+        return true;
+    }
+
+    /**
+     * En una versión publicada agrega el error del formulario si se intentó
+     * crear un elemento o cambiar alguno de los campos estructurales.
+     *
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $submitted
+     */
+    private function rejectsStructuralChange(array $current, array $submitted, bool $isEditing): bool
+    {
+        $guard = app(PublishedVersionGuard::class);
+
+        if (! $guard->isLocked($this->version)) {
+            return false;
+        }
+
+        if ($isEditing && $guard->changedFields($current, $submitted) === []) {
+            return false;
+        }
+
+        $this->addError('structure', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+        return true;
     }
 
     private function findSection(int $sectionId): Section
@@ -197,7 +268,7 @@ class Index extends Component
                 'Una sección no puede ser su propia sección padre.'
             );
 
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'parentId' => 'Una sección no puede ser su propia sección padre.',
             ]);
         }
@@ -208,7 +279,7 @@ class Index extends Component
             ->exists();
 
         if (! $parentExists) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'parentId' => 'La sección padre no pertenece a esta versión.',
             ]);
         }
@@ -217,7 +288,7 @@ class Index extends Component
             $this->editingSectionId !== null
             && $this->isDescendantOf($parentId, $this->editingSectionId)
         ) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'parentId' => 'No se puede seleccionar una sección descendiente como padre.',
             ]);
         }
