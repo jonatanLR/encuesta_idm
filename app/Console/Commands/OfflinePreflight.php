@@ -65,7 +65,7 @@ class OfflinePreflight extends Command
             [
                 'Archivos en el disco público',
                 'publicFiles',
-                'Se moverán al disco privado en el Bloque 3 (D-07).',
+                'Ejecutar php artisan offline:move-files-private (D-07).',
             ],
             [
                 'Preguntas de prueba activas en versiones publicadas',
