@@ -15,6 +15,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -167,6 +168,21 @@ class SurveyReadOnlyModeTest extends TestCase
             ->assertDontSee('+ Nueva encuesta')
             ->assertSeeHtml('href="'.$viewUrl.'"')
             ->assertDontSeeHtml('href="'.$editUrl.'"');
+    }
+
+    public function test_read_only_mode_cannot_be_disabled_from_the_client(): void
+    {
+        $owner = $this->createFieldUser();
+        $response = $this->createResponseWithMemberSection($owner);
+
+        $viewer = $this->createSurveyAdmin();
+
+        $this->actingAs($viewer);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::test(Form::class, ['response' => $response])
+            ->set('readOnly', false);
     }
 
     public function test_logout_with_expired_page_redirects_to_login(): void
