@@ -39,6 +39,15 @@ class SurveyFile extends Model
         });
     }
 
+    /**
+     * URL autenticada para mostrar la fotografía (D-07). Nunca expone la
+     * ruta física del archivo.
+     */
+    public function url(): string
+    {
+        return route('survey-files.show', $this);
+    }
+
     public function surveyResponse(): BelongsTo
     {
         return $this->belongsTo(

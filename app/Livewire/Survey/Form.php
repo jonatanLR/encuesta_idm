@@ -14,10 +14,10 @@ use App\Models\SurveyFile;
 use App\Models\SurveyResponse;
 use App\Services\ConditionEvaluator;
 use App\Services\HouseholdMemberService;
+use App\Services\SurveyFileStorage;
 use App\Services\SurveyResponseService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -549,13 +549,6 @@ class Form extends Component
 
         $existingFile = $answer->surveyFiles()->first();
 
-        if ($existingFile !== null) {
-            Storage::disk($existingFile->disk)
-                ->delete($existingFile->path);
-
-            $existingFile->delete();
-        }
-
         $directory = $member === null
             ? sprintf(
                 'surveys/%s/questions/%s',
@@ -569,19 +562,17 @@ class Form extends Component
                 $question->code,
             );
 
-        $path = $file->store($directory, 'public');
-
-        $answer->surveyFiles()->create([
-            'survey_response_id' => $this->response->id,
-            'answer_id' => $answer->id,
-            'household_member_id' => $member?->id,
-            'file_type' => 'image',
-            'disk' => 'public',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        app(SurveyFileStorage::class)->store(
+            file: $file,
+            directory: $directory,
+            attributes: [
+                'survey_response_id' => $this->response->id,
+                'answer_id' => $answer->id,
+                'household_member_id' => $member?->id,
+                'file_type' => 'image',
+            ],
+            replacing: $existingFile,
+        );
 
         $this->response->load('answers');
     }
@@ -628,31 +619,24 @@ class Form extends Component
             ->where('file_type', $fileType)
             ->first();
 
-        if ($existingFile !== null) {
-            Storage::disk($existingFile->disk)
-                ->delete($existingFile->path);
-
-            $existingFile->delete();
-        }
-
         $directory = sprintf(
             'surveys/%s/members/%s/dni',
             $this->response->public_id,
             $member->public_id,
         );
 
-        $path = $file->store($directory, 'public');
+        app(SurveyFileStorage::class)->store(
+            file: $file,
+            directory: $directory,
+            attributes: [
+                'survey_response_id' => $this->response->id,
+                'household_member_id' => $member->id,
+                'file_type' => $fileType,
+            ],
+            replacing: $existingFile,
+        );
 
-        $member->surveyFiles()->create([
-            'survey_response_id' => $this->response->id,
-            'household_member_id' => $member->id,
-            'file_type' => $fileType,
-            'disk' => 'public',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        $member->unsetRelation('surveyFiles');
     }
 
     public function saveMemberRelationship(

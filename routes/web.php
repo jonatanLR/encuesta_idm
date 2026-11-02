@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SurveyFileController;
 use App\Livewire\CommunitySearch;
 use App\Livewire\Survey\Form;
 use App\Livewire\Survey\Index;
@@ -18,6 +19,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('/encuestas', Index::class)->name('survey.index');
     Route::livewire('/encuestas/{response}', Form::class)->name('survey.form');
+    Route::get('/archivos/{surveyFile}', [SurveyFileController::class, 'show'])->name('survey-files.show');
     Route::livewire('/administrar-encuestas', SurveyManagementIndex::class)->name('survey-management.index');
     Route::livewire('/administrar-encuestas/comunidades', \App\Livewire\SurveyManagement\Communities\Index::class)
         ->name('survey-management.communities');

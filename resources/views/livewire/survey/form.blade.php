@@ -365,7 +365,7 @@
 
                                             @if ($dniPhoto)
                                                 <div class="mb-4">
-                                                    <img src="{{ Storage::disk($dniPhoto->disk)->url($dniPhoto->path) }}"
+                                                    <img src="{{ $dniPhoto->url() }}"
                                                         alt="{{ $question->label }}"
                                                         class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                                 </div>
@@ -429,7 +429,7 @@
 
                                         @if ($imageFile)
                                             <div class="mb-4">
-                                                <img src="{{ Storage::disk($imageFile->disk)->url($imageFile->path) }}"
+                                                <img src="{{ $imageFile->url() }}"
                                                     alt="{{ $question->label }}"
                                                     class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                             </div>
@@ -612,7 +612,7 @@
 
                                                     @if ($imageFile)
                                                         <div class="mb-4">
-                                                            <img src="{{ Storage::disk($imageFile->disk)->url($imageFile->path) }}"
+                                                            <img src="{{ $imageFile->url() }}"
                                                                 alt="{{ $question->label }}"
                                                                 class="max-h-64 w-auto rounded-lg border border-zinc-200" />
                                                         </div>
