@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\SurveyFileStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SurveyFile extends Model
@@ -46,6 +48,16 @@ class SurveyFile extends Model
     public function url(): string
     {
         return route('survey-files.show', $this);
+    }
+
+    /**
+     * Indica si el archivo físico existe en un disco permitido. Los
+     * registros heredados cuyo archivo se perdió devuelven false.
+     */
+    public function isAvailable(): bool
+    {
+        return in_array($this->disk, SurveyFileStorage::READABLE_DISKS, true)
+            && Storage::disk($this->disk)->exists($this->path);
     }
 
     public function surveyResponse(): BelongsTo

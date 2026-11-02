@@ -109,7 +109,8 @@ describe('ruta autenticada de fotografías', function () {
             ->assertHeader('X-Content-Type-Options', 'nosniff');
 
         expect($response->streamedContent())->toBe('contenido-de-prueba')
-            ->and($response->headers->get('Cache-Control'))->toContain('private');
+            ->and($response->headers->get('Cache-Control'))->toContain('private')
+            ->and($response->headers->get('Cache-Control'))->toContain('no-store');
     });
 
     it('still serves legacy files from the public disk', function () {
@@ -157,6 +158,28 @@ describe('carga de fotografías en el formulario', function () {
 
         $component->assertSeeHtml($file->url())
             ->assertDontSeeHtml('/storage/surveys');
+    });
+
+    it('shows a notice instead of a broken image when the stored file is missing', function () {
+        $user = privateFilesUser(['survey.view', 'survey.update']);
+        [$response, $question] = surveyWithImageQuestion($user);
+
+        $answer = Answer::factory()->create([
+            'survey_response_id' => $response->id,
+            'question_id' => $question->id,
+            'household_member_id' => null,
+        ]);
+
+        $lost = storedSurveyFile($response, 'public', 'surveys/perdida/foto.jpg');
+        $lost->update(['answer_id' => $answer->id]);
+        Storage::disk('public')->delete($lost->path);
+
+        expect($lost->isAvailable())->toBeFalse();
+
+        Livewire::actingAs($user)
+            ->test(Form::class, ['response' => $response])
+            ->assertSee('La fotografía registrada no se encuentra en el servidor.')
+            ->assertDontSeeHtml($lost->url());
     });
 
     it('replaces a legacy public photo safely', function () {
@@ -286,5 +309,39 @@ describe('comando offline:move-files-private', function () {
 
         expect($copied->fresh()->disk)->toBe('local')
             ->and($missing->fresh()->disk)->toBe('public');
+    });
+
+    it('only reports public files without a record unless --huerfanos is given', function () {
+        Storage::disk('public')->put('surveys/x/huerfana.png', 'sin-registro');
+
+        $this->artisan('offline:move-files-private')
+            ->expectsOutputToContain('Sin registro (se guardaría en privado con --huerfanos)')
+            ->expectsOutputToContain('--huerfanos para retirarlos')
+            ->assertSuccessful();
+
+        $this->artisan('offline:move-files-private', ['--dry-run' => true, '--huerfanos' => true])
+            ->assertSuccessful();
+
+        Storage::disk('public')->assertExists('surveys/x/huerfana.png');
+        Storage::disk('local')->assertMissing('huerfanos/surveys/x/huerfana.png');
+    });
+
+    it('quarantines orphans in the private disk and deletes leftover copies with --huerfanos', function () {
+        $response = SurveyResponse::factory()->create();
+
+        Storage::disk('public')->put('surveys/x/huerfana.png', 'sin-registro');
+
+        $migrated = storedSurveyFile($response, 'local', 'surveys/x/migrada.jpg');
+        Storage::disk('public')->put($migrated->path, 'contenido-de-prueba');
+
+        $this->artisan('offline:move-files-private', ['--huerfanos' => true])
+            ->expectsOutputToContain('Guardado en privado: huerfanos/surveys/x/huerfana.png')
+            ->expectsOutputToContain('Copia sobrante borrada')
+            ->assertSuccessful();
+
+        expect(Storage::disk('local')->get('huerfanos/surveys/x/huerfana.png'))->toBe('sin-registro')
+            ->and(Storage::disk('local')->get($migrated->path))->toBe('contenido-de-prueba')
+            ->and(Storage::disk('public')->allFiles())->toBe([])
+            ->and(Storage::disk('public')->allDirectories())->toBe([]);
     });
 });

@@ -364,11 +364,17 @@
                                             </div>
 
                                             @if ($dniPhoto)
-                                                <div class="mb-4">
-                                                    <img src="{{ $dniPhoto->url() }}"
-                                                        alt="{{ $question->label }}"
-                                                        class="max-h-64 w-auto rounded-lg border border-zinc-200" />
-                                                </div>
+                                                @if ($dniPhoto->isAvailable())
+                                                    <div class="mb-4">
+                                                        <img src="{{ $dniPhoto->url() }}"
+                                                            alt="{{ $question->label }}"
+                                                            class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                                    </div>
+                                                @else
+                                                    <p class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                                        La fotografía registrada no se encuentra en el servidor.
+                                                    </p>
+                                                @endif
 
                                                 @unless ($readOnly)
                                                     <p class="mb-3 text-sm text-zinc-600">
@@ -428,11 +434,17 @@
                                         </div>
 
                                         @if ($imageFile)
-                                            <div class="mb-4">
-                                                <img src="{{ $imageFile->url() }}"
-                                                    alt="{{ $question->label }}"
-                                                    class="max-h-64 w-auto rounded-lg border border-zinc-200" />
-                                            </div>
+                                            @if ($imageFile->isAvailable())
+                                                <div class="mb-4">
+                                                    <img src="{{ $imageFile->url() }}"
+                                                        alt="{{ $question->label }}"
+                                                        class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                                </div>
+                                            @else
+                                                <p class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                                    La fotografía registrada no se encuentra en el servidor.
+                                                </p>
+                                            @endif
 
                                             @unless ($readOnly)
                                                 <p class="mb-3 text-sm text-zinc-600">
@@ -611,11 +623,17 @@
                                                     </div>
 
                                                     @if ($imageFile)
-                                                        <div class="mb-4">
-                                                            <img src="{{ $imageFile->url() }}"
-                                                                alt="{{ $question->label }}"
-                                                                class="max-h-64 w-auto rounded-lg border border-zinc-200" />
-                                                        </div>
+                                                        @if ($imageFile->isAvailable())
+                                                            <div class="mb-4">
+                                                                <img src="{{ $imageFile->url() }}"
+                                                                    alt="{{ $question->label }}"
+                                                                    class="max-h-64 w-auto rounded-lg border border-zinc-200" />
+                                                            </div>
+                                                        @else
+                                                            <p class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                                                La fotografía registrada no se encuentra en el servidor.
+                                                            </p>
+                                                        @endif
 
                                                         @unless ($readOnly)
                                                             <p class="mb-3 text-sm text-zinc-600">
