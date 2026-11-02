@@ -1,17 +1,20 @@
 <?php
 
-use App\Models\Community;
+use App\Models\Answer;
+use App\Models\Household;
+use App\Models\HouseholdMember;
+use App\Models\HouseholdRelationship;
 use App\Models\Question;
 use App\Models\Questionnaire;
 use App\Models\QuestionType;
 use App\Models\Section;
+use App\Models\SurveyFile;
+use App\Models\SurveyResponse;
 use App\Models\SurveyVersion;
 use App\Models\User;
 use App\Services\SurveyResponseService;
 use App\Services\SurveyResponseValidator;
-use App\Models\Household;
-use App\Models\HouseholdMember;
-use App\Models\HouseholdRelationship;
+
 // use Illuminate\Database\QueryException;
 
 it('ignores inactive required questions during validation', function () {
@@ -55,7 +58,7 @@ it('ignores inactive required questions during validation', function () {
     expect($errors)->toBe([]);
 });
 
-//--------------------------------------------------------------------------
+// --------------------------------------------------------------------------
 it('ignores required questions from another survey version', function () {
     $questionnaire = Questionnaire::factory()->create();
 
@@ -66,7 +69,7 @@ it('ignores required questions from another survey version', function () {
     $otherVersion = SurveyVersion::factory()->create([
         'questionnaire_id' => $questionnaire->id,
         'version' => 2.0,
-    ]);;
+    ]);
 
     $section = Section::factory()->create([
         'survey_version_id' => $version->id,
@@ -105,7 +108,7 @@ it('ignores required questions from another survey version', function () {
     expect($errors)->toBe([]);
 });
 
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 it('returns the exact validation error for an unanswered required question', function () {
     $questionnaire = Questionnaire::factory()->create();
 
@@ -148,7 +151,7 @@ it('returns the exact validation error for an unanswered required question', fun
     ]);
 });
 
-//---------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------
 
 it('returns false when the response has validation errors', function () {
     $questionnaire = Questionnaire::factory()->create();
@@ -188,7 +191,7 @@ it('returns false when the response has validation errors', function () {
     expect($validator->isValid($response))->toBeFalse();
 });
 
-//-----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 
 it('returns true when the response is valid', function () {
     $questionnaire = Questionnaire::factory()->create();
@@ -232,7 +235,7 @@ it('returns true when the response is valid', function () {
     expect($validator->isValid($response))->toBeTrue();
 });
 
-//-----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 
 it('requires unanswered member questions when member capture has started', function () {
     $questionnaire = Questionnaire::factory()->create();
@@ -300,7 +303,7 @@ it('requires unanswered member questions when member capture has started', funct
         ->toHaveKey('MEMBER_REQUIRED');
 });
 
-//---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 it('does not require member questions when member capture has not started', function () {
     $questionnaire = Questionnaire::factory()->create();
 
@@ -357,7 +360,7 @@ it('does not require member questions when member capture has not started', func
     expect($errors)->toBe([]);
 });
 
-//-----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 it('validates member answers independently for each started member', function () {
     $questionnaire = Questionnaire::factory()->create();
 
@@ -445,4 +448,103 @@ it('validates member answers independently for each started member', function ()
     expect($errors['members'])->not->toHaveKey(
         $memberB->public_id
     );
+});
+
+// --------------------------------------------------------------------------
+// Bloque 0 Offline v1: respuestas booleanas, de imagen y texto vacío.
+
+/**
+ * Crea una encuesta con una única pregunta obligatoria del tipo indicado.
+ *
+ * @return array{0: SurveyResponse, 1: Question}
+ */
+function createResponseWithRequiredQuestion(string $typeCode, string $questionCode): array
+{
+    $questionnaire = Questionnaire::factory()->create();
+
+    $version = SurveyVersion::factory()->create([
+        'questionnaire_id' => $questionnaire->id,
+    ]);
+
+    $section = Section::factory()->create([
+        'survey_version_id' => $version->id,
+    ]);
+
+    $questionType = QuestionType::factory()->create([
+        'code' => $typeCode,
+    ]);
+
+    $question = Question::factory()->create([
+        'section_id' => $section->id,
+        'question_type_id' => $questionType->id,
+        'code' => $questionCode,
+        'required' => true,
+        'active' => true,
+    ]);
+
+    $response = app(SurveyResponseService::class)->createDraft(
+        $questionnaire->id,
+        $version->id,
+        User::factory()->create()->id
+    );
+
+    return [$response, $question];
+}
+
+it('treats a required boolean question answered with false as answered', function () {
+    [$response, $question] = createResponseWithRequiredQuestion('boolean', 'REQUIRED_BOOLEAN');
+
+    Answer::create([
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'boolean_value' => false,
+    ]);
+
+    expect(app(SurveyResponseValidator::class)->validate($response))->toBe([]);
+});
+
+it('treats a required image question with an uploaded file as answered', function () {
+    [$response, $question] = createResponseWithRequiredQuestion('image', 'REQUIRED_IMAGE');
+
+    $answer = Answer::create([
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    SurveyFile::create([
+        'survey_response_id' => $response->id,
+        'answer_id' => $answer->id,
+        'file_type' => 'image',
+        'disk' => 'public',
+        'path' => 'surveys/test/questions/REQUIRED_IMAGE/foto.jpg',
+    ]);
+
+    expect(app(SurveyResponseValidator::class)->validate($response))->toBe([]);
+});
+
+it('requires a required image question whose answer has no file', function () {
+    [$response, $question] = createResponseWithRequiredQuestion('image', 'REQUIRED_IMAGE');
+
+    Answer::create([
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+    ]);
+
+    expect(app(SurveyResponseValidator::class)->validate($response))->toBe([
+        'REQUIRED_IMAGE' => 'Esta pregunta es obligatoria.',
+    ]);
+});
+
+it('does not treat blank text as an answer for a required question', function () {
+    [$response, $question] = createResponseWithRequiredQuestion('text', 'REQUIRED_TEXT');
+
+    Answer::create([
+        'survey_response_id' => $response->id,
+        'question_id' => $question->id,
+        'text_value' => '   ',
+    ]);
+
+    expect(app(SurveyResponseValidator::class)->validate($response))->toBe([
+        'REQUIRED_TEXT' => 'Esta pregunta es obligatoria.',
+    ]);
 });

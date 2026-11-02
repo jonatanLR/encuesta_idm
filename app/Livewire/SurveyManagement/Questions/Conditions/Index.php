@@ -7,24 +7,39 @@ use App\Models\QuestionCondition;
 use App\Models\Questionnaire;
 use App\Models\Section;
 use App\Models\SurveyVersion;
-use Illuminate\Support\Collection;
+use App\Services\PublishedVersionGuard;
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Index extends Component
 {
     public Questionnaire $questionnaire;
+
     public SurveyVersion $version;
+
     public Section $section;
+
     public Question $question;
 
+    /**
+     * Versión publicada: solo se permiten correcciones de texto y orden (D-08).
+     */
+    #[Locked]
+    public bool $versionLocked = false;
+
     public bool $showFormModal = false;
+
     public ?int $editingConditionId = null;
 
     public ?int $dependsOnQuestionId = null;
+
     public ?int $dependsOnOptionId = null;
+
     public string $operator = 'equals';
+
     public ?string $expectedValue = null;
+
     public bool $active = true;
 
     public function mount(
@@ -49,11 +64,16 @@ class Index extends Component
         $this->version = $version;
         $this->section = $section;
         $this->question = $question;
+        $this->versionLocked = app(PublishedVersionGuard::class)->isLocked($version);
     }
 
     public function openCreateModal(): void
     {
         $this->authorize('create', QuestionCondition::class);
+
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
 
         $this->resetForm();
         $this->showFormModal = true;
@@ -64,6 +84,10 @@ class Index extends Component
         $condition = $this->findCondition($conditionId);
 
         $this->authorize('update', $condition);
+
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
 
         $this->editingConditionId = $condition->id;
         $this->dependsOnQuestionId = $condition->depends_on_question_id;
@@ -95,6 +119,12 @@ class Index extends Component
             $isEditing ? 'update' : 'create',
             $isEditing ? $condition : QuestionCondition::class
         );
+
+        if (app(PublishedVersionGuard::class)->isLocked($this->version)) {
+            $this->addError('structure', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+            return;
+        }
 
         $this->validate([
             'dependsOnQuestionId' => [
@@ -214,6 +244,10 @@ class Index extends Component
 
         $this->authorize('activate', $condition);
 
+        if ($this->blockWhenVersionLocked()) {
+            return;
+        }
+
         $condition->update([
             'active' => ! $condition->active,
         ]);
@@ -230,6 +264,20 @@ class Index extends Component
     {
         $this->showFormModal = false;
         $this->resetForm();
+    }
+
+    /**
+     * Si la versión está publicada, informa al usuario y devuelve true.
+     */
+    private function blockWhenVersionLocked(): bool
+    {
+        if (! app(PublishedVersionGuard::class)->isLocked($this->version)) {
+            return false;
+        }
+
+        session()->flash('error', PublishedVersionGuard::STRUCTURE_LOCKED_MESSAGE);
+
+        return true;
     }
 
     private function findCondition(int $conditionId): QuestionCondition
@@ -253,10 +301,9 @@ class Index extends Component
             ->sections()
             ->with('questions.questionType')
             ->get()
-            ->flatMap(fn(Section $section) => $section->questions)
+            ->flatMap(fn (Section $section) => $section->questions)
             ->firstOrFail(
-                fn(Question $question) =>
-                $question->id === $questionId
+                fn (Question $question) => $question->id === $questionId
             );
     }
 
@@ -345,8 +392,7 @@ class Index extends Component
         $referenceQuestions = $this->version
             ->sections()
             ->with([
-                'questions' => fn($query) =>
-                $query
+                'questions' => fn ($query) => $query
                     ->where('id', '!=', $this->question->id)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
@@ -354,9 +400,8 @@ class Index extends Component
             ->orderBy('sort_order')
             ->get()
             ->flatMap(
-                fn(Section $section) =>
-                $section->questions->map(
-                    fn(Question $question) => [
+                fn (Section $section) => $section->questions->map(
+                    fn (Question $question) => [
                         'question' => $question,
                         'section' => $section,
                     ]
@@ -371,11 +416,11 @@ class Index extends Component
 
         $referenceOptions = $selectedReferenceQuestion
             ? $selectedReferenceQuestion
-            ->options()
-            ->where('active', true)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get()
+                ->options()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
             : collect();
 
         return view(

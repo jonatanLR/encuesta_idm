@@ -14,9 +14,11 @@ use App\Models\SurveyFile;
 use App\Models\SurveyResponse;
 use App\Services\ConditionEvaluator;
 use App\Services\HouseholdMemberService;
+use App\Services\SurveyFileStorage;
 use App\Services\SurveyResponseService;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -27,6 +29,20 @@ class Form extends Component
     use WithFileUploads;
 
     public SurveyResponse $response;
+
+    /**
+     * Modo consulta: se activa con "Ver" (?modo=lectura) o cuando el usuario
+     * no puede modificar la encuesta. Solo afecta la interfaz; cada acción
+     * de escritura sigue autorizándose en el servidor.
+     */
+    #[Locked]
+    public bool $readOnly = false;
+
+    #[Locked]
+    public bool $canComplete = false;
+
+    #[Locked]
+    public bool $canEditFromReadOnly = false;
 
     public int $currentSectionIndex = 0;
 
@@ -43,6 +59,7 @@ class Form extends Component
     public array $memberForm = [];
 
     public array $completionErrors = [];
+
     public array $completionQuestionLabels = [];
 
     public bool $surveyCompletedMessage = false;
@@ -84,6 +101,15 @@ class Form extends Component
     public function mount(SurveyResponse $response): void
     {
         $this->authorize('view', $response);
+
+        $this->readOnly = request()->query('modo') === 'lectura'
+            || Gate::denies('update', $response);
+
+        $this->canComplete = ! $this->readOnly
+            && Gate::allows('complete', $response);
+
+        $this->canEditFromReadOnly = $this->readOnly
+            && Gate::allows('update', $response);
 
         $this->response = $response->load([
             'questionnaire',
@@ -167,7 +193,7 @@ class Form extends Component
             ->whereIn('code', array_unique($codes))
             ->get(['code', 'label'])
             ->keyBy('code')
-            ->map(fn(Question $question): string => $question->label)
+            ->map(fn (Question $question): string => $question->label)
             ->all();
     }
 
@@ -183,7 +209,7 @@ class Form extends Component
         $nextSection = $sections->get($nextIndex);
 
         if ($nextSection?->code === 'MEMBER') {
-            $this->ensureHousehold();
+            $this->ensureHouseholdWhenAuthorized();
         }
 
         $this->currentSectionIndex = $nextIndex;
@@ -207,7 +233,7 @@ class Form extends Component
         $section = $sections->get($index);
 
         if ($section?->code === 'MEMBER') {
-            $this->ensureHousehold();
+            $this->ensureHouseholdWhenAuthorized();
         }
 
         $this->currentSectionIndex = $index;
@@ -272,6 +298,8 @@ class Form extends Component
 
     public function addMember(): void
     {
+        $this->authorize('update', $this->response);
+
         $this->validate([
             'newMemberName' => [
                 'required',
@@ -521,13 +549,6 @@ class Form extends Component
 
         $existingFile = $answer->surveyFiles()->first();
 
-        if ($existingFile !== null) {
-            Storage::disk($existingFile->disk)
-                ->delete($existingFile->path);
-
-            $existingFile->delete();
-        }
-
         $directory = $member === null
             ? sprintf(
                 'surveys/%s/questions/%s',
@@ -541,19 +562,17 @@ class Form extends Component
                 $question->code,
             );
 
-        $path = $file->store($directory, 'public');
-
-        $answer->surveyFiles()->create([
-            'survey_response_id' => $this->response->id,
-            'answer_id' => $answer->id,
-            'household_member_id' => $member?->id,
-            'file_type' => 'image',
-            'disk' => 'public',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        app(SurveyFileStorage::class)->store(
+            file: $file,
+            directory: $directory,
+            attributes: [
+                'survey_response_id' => $this->response->id,
+                'answer_id' => $answer->id,
+                'household_member_id' => $member?->id,
+                'file_type' => 'image',
+            ],
+            replacing: $existingFile,
+        );
 
         $this->response->load('answers');
     }
@@ -600,31 +619,24 @@ class Form extends Component
             ->where('file_type', $fileType)
             ->first();
 
-        if ($existingFile !== null) {
-            Storage::disk($existingFile->disk)
-                ->delete($existingFile->path);
-
-            $existingFile->delete();
-        }
-
         $directory = sprintf(
             'surveys/%s/members/%s/dni',
             $this->response->public_id,
             $member->public_id,
         );
 
-        $path = $file->store($directory, 'public');
+        app(SurveyFileStorage::class)->store(
+            file: $file,
+            directory: $directory,
+            attributes: [
+                'survey_response_id' => $this->response->id,
+                'household_member_id' => $member->id,
+                'file_type' => $fileType,
+            ],
+            replacing: $existingFile,
+        );
 
-        $member->surveyFiles()->create([
-            'survey_response_id' => $this->response->id,
-            'household_member_id' => $member->id,
-            'file_type' => $fileType,
-            'disk' => 'public',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        $member->unsetRelation('surveyFiles');
     }
 
     public function saveMemberRelationship(
@@ -1004,6 +1016,18 @@ class Form extends Component
         );
 
         $this->response->load('answers');
+    }
+
+    /**
+     * Crea el hogar y el jefe/a de hogar al entrar a la sección MEMBER
+     * solo si el usuario puede modificar la encuesta y no está en modo
+     * consulta. Quien solo consulta navega sin generar escrituras.
+     */
+    protected function ensureHouseholdWhenAuthorized(): void
+    {
+        if (! $this->readOnly && Gate::allows('update', $this->response)) {
+            $this->ensureHousehold();
+        }
     }
 
     // HouseHold protected

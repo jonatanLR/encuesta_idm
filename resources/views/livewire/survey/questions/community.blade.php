@@ -8,6 +8,12 @@
         @endif
     </label>
 
-    <livewire:community-search :initial-community-id="$response->community_id" :initial-community-name="$response->community?->name" :key="'community-search-' . $response->id" />
+    @if ($readOnly ?? false)
+        <p class="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+            {{ $response->community?->name ?? 'No seleccionada' }}
+        </p>
+    @else
+        <livewire:community-search :initial-community-id="$response->community_id" :initial-community-name="$response->community?->name" :key="'community-search-' . $response->id" />
+    @endif
 
 </div>
