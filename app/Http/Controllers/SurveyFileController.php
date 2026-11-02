@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\SurveyFile;
-use App\Services\SurveyFileStorage;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,21 +24,14 @@ class SurveyFileController extends Controller
 
         Gate::authorize('view', $surveyResponse);
 
-        abort_unless(
-            in_array($surveyFile->disk, SurveyFileStorage::READABLE_DISKS, true),
-            404
-        );
+        abort_unless($surveyFile->isAvailable(), 404);
 
-        $disk = Storage::disk($surveyFile->disk);
-
-        abort_unless($disk->exists($surveyFile->path), 404);
-
-        return $disk->response(
+        return Storage::disk($surveyFile->disk)->response(
             $surveyFile->path,
             $surveyFile->original_name,
             [
                 'Content-Type' => $surveyFile->mime_type ?: 'application/octet-stream',
-                'Cache-Control' => 'private, max-age=3600',
+                'Cache-Control' => 'private, no-store, max-age=0',
                 'X-Content-Type-Options' => 'nosniff',
             ],
         );
